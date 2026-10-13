@@ -57,6 +57,23 @@ List order is **predictable**, so you never have to hunt through entries:
 - Secret handling: API tokens and headers are **never read back to the browser** — only key names. Editing preserves keys you didn't retype, and lets you delete individual keys explicitly.
 - Type `${MY_TOKEN}` in any env or header value and it is written as a real `!!js` expression (`\`Bearer ${process.env.MY_TOKEN}\``) — DSH has no `${VAR}` interpolation, so this is the only mechanism that actually reads the environment. The `!!js` tag round-trips byte-exactly through every edit.
 
+**Backup: export / import your setup (for moving machines)**
+
+The **Backup** tab packs everything this plugin manages — **Skills + MCP servers + Git source records** — into a single JSON file you can import on a new machine.
+
+Two payload modes, chosen at export time:
+
+| Mode | Contains | Size | On import |
+|---|---|---|---|
+| **Recipe** (default) | Just the source: repository + commit + layout | usually a few KB | Re-clones from the recorded repo — **needs network** |
+| **Full contents** | The skill files too (binaries as base64) | can be several MB | Restores files directly — **works offline** |
+
+- **Skills with no recoverable source always carry their contents**, in either mode — otherwise they would be lost on the new machine. That is not left to the UI to get wrong.
+- **Import reviews before it writes**: the plan lists every entry's action (create / overwrite), conflicts, secrets that need re-entering, and blocked items. Nothing is written until you confirm.
+- **Secrets are excluded by default.** This plugin normally never returns a secret to the browser; exporting breaks that boundary, so it takes an explicit opt-in and then shows a plain-text warning. Without it, only key names are written and you are told which ones to fill in.
+- Import is **idempotent**: re-importing the same file overwrites rather than duplicating.
+- If an upstream repository has moved on, the import reports that the commit it got differs from the one exported.
+
 ## Install
 
 ```powershell
@@ -118,6 +135,7 @@ All routes are same-origin, POST-only for writes, with an origin check that reje
 | `skill/set-enabled`, `skill/remove`, `skill/read`, `skill/write` | Skill management |
 | `skill/install`, `skill/update`, `skill/check-updates`, `skill/forget-source` | Git sources |
 | `mcp/list`, `mcp/save`, `mcp/remove`, `mcp/set-enabled` | MCP management |
+| `bundle/export`, `bundle/plan`, `bundle/import` | Settings export / review / import |
 
 ## Plugin Info
 

@@ -10,3 +10,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# 本地回归套件与版面走查产物：按本项目约定不入库（发布者本地保留）。
+# 需要时 `node test/run.mjs` 跑全套；依赖 node_modules 里的 yaml。
+test/
+.preview/

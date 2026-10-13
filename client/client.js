@@ -44,6 +44,37 @@ window.__ModuleLoader__.load({
 			tabSkills: "技能",
 			tabMcp: "MCP",
 			tabSources: "远程来源",
+			tabBackup: "备份",
+			backupExport: "导出配置",
+			backupExportHint: "把本插件管理的 Skills、MCP 服务器与来源记录打包成一个文件，换电脑后导入即可恢复环境。",
+			backupImport: "导入配置",
+			backupImportHint: "选择之前导出的配置文件，或直接把内容粘到下面。导入前会先预检，确认后才会写入。",
+			modeRecipe: "配方",
+			modeFull: "完整内容",
+			modeRecipeHint: "只记录来源（仓库 + 提交 + 落盘形态），文件通常只有几 KB；导入时自动重新拉取。需要联网。",
+			modeFullHint: "连技能文件一起打包（含图片等二进制），导入无需联网。文件会明显变大。",
+			includeSecrets: "包含 MCP 密钥",
+			secretsWarning: "导出文件将包含 MCP 的 API 令牌与请求头明文，请勿分享或提交到仓库。",
+			export: "导出",
+			exportReady: "已生成配置包",
+			download: "下载文件",
+			size: "大小",
+			skippedFiles: "跳过的文件",
+			serversNeedSecrets: "个服务器的密钥未导出，导入后需重新填写",
+			pasteHint: "在此粘贴配置内容，或从上方选择文件…",
+			checkBundle: "预检",
+			applyImport: "开始导入",
+			planTitle: "将要执行的操作",
+			exportedAt: "导出于",
+			fromVersion: "来自插件版本",
+			willCreate: "新建",
+			willOverwrite: "覆盖",
+			needsSecrets: "需重填密钥",
+			blockedCount: "项无法导入（原因见上）",
+			gitMissingForRecipe: "本机没有 git，配方模式的技能无法重新拉取；请改用完整内容模式导出。",
+			importResult: "导入结果",
+			importDone: "导入完成",
+			failedCount: "失败",
 			search: "搜索名称或描述…",
 			enabled: "已启用",
 			disabled: "已停用",
@@ -144,6 +175,37 @@ window.__ModuleLoader__.load({
 			tabSkills: "Skills",
 			tabMcp: "MCP",
 			tabSources: "Remote sources",
+			tabBackup: "Backup",
+			backupExport: "Export settings",
+			backupExportHint: "Pack the Skills, MCP servers and source records this plugin manages into one file; import it on another machine to restore your setup.",
+			backupImport: "Import settings",
+			backupImportHint: "Choose a previously exported file, or paste its contents below. Nothing is written until you review the plan.",
+			modeRecipe: "Recipe",
+			modeFull: "Full contents",
+			modeRecipeHint: "Records only the source (repository + commit + layout) — usually a few KB — and re-pulls on import. Needs network access.",
+			modeFullHint: "Packs the skill files too (images and other binaries included), so importing works offline. The file gets much larger.",
+			includeSecrets: "Include MCP secrets",
+			secretsWarning: "The exported file will contain MCP API tokens and headers in plain text. Do not share it or commit it.",
+			export: "Export",
+			exportReady: "Settings bundle ready",
+			download: "Download file",
+			size: "Size",
+			skippedFiles: "Skipped files",
+			serversNeedSecrets: "server(s) had their secrets omitted — you will need to re-enter them after importing",
+			pasteHint: "Paste the bundle contents here, or pick a file above…",
+			checkBundle: "Review",
+			applyImport: "Import now",
+			planTitle: "What will happen",
+			exportedAt: "Exported at",
+			fromVersion: "From plugin version",
+			willCreate: "create",
+			willOverwrite: "overwrite",
+			needsSecrets: "needs secrets",
+			blockedCount: "item(s) cannot be imported (see reasons above)",
+			gitMissingForRecipe: "git is not available here, so recipe skills cannot be re-pulled. Export with full contents instead.",
+			importResult: "Import result",
+			importDone: "Import finished",
+			failedCount: "failed",
 			search: "Search name or description…",
 			enabled: "Enabled",
 			disabled: "Disabled",
@@ -304,6 +366,11 @@ window.__ModuleLoader__.load({
 .smt-fieldLabel{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
 .smt-input,.smt-textarea,.smt-select{width:100%;box-sizing:border-box;font:inherit;font-size:13px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);padding:6px 10px;outline:0}
 .smt-input,.smt-select{height:32px;padding:0 10px}
+/* 文件选择框：原生按钮在深色面板里是浅色系统样式，单独调成与其它控件一致。
+ * ::file-selector-button 是标准写法；::-webkit-file-upload-button 兜旧 Chromium。 */
+.smt-input[type=file]{padding:4px 8px;color:var(--dsw-alias-label-secondary);cursor:pointer}
+.smt-input[type=file]::file-selector-button{margin-right:8px;font:inherit;font-size:12px;cursor:pointer;border-radius:6px;padding:3px 10px;border:1px solid var(--dsw-alias-border-l2);background:0 0;color:var(--dsw-alias-label-primary)}
+.smt-input[type=file]::file-selector-button:hover{background:var(--dsw-alias-interactive-bg-hover)}
 .smt-textarea{min-height:120px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:18px;resize:vertical}
 .smt-input:focus-visible,.smt-textarea:focus-visible,.smt-select:focus-visible{border-color:var(--dsw-alias-brand-primary)}
 .smt-hint{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary)}
@@ -1255,6 +1322,257 @@ window.__ModuleLoader__.load({
 			);
 		}
 
+		// ── 备份页（导出 / 导入）────────────────────────────────────────────
+		/**
+		 * 配置备份：把 Skills + MCP + 来源记录打包成一个文件，换电脑时导入。
+		 *
+		 * 两个刻意的界面决定：
+		 *   1. 导出模式默认「配方」——多数技能来自 Git，重新克隆即可精确还原，
+		 *      文件只有几 KB；需要离线还原时才选「完整内容」。
+		 *   2. 密钥默认不含。插件的常态是密钥从不回传浏览器，导出会打破这条
+		 *      边界，所以必须由用户显式勾选，且勾选后给出明确警告。
+		 */
+		function BackupSection({ t, state, reload, notify }) {
+			const [mode, setMode] = React.useState("recipe");
+			const [includeSecrets, setIncludeSecrets] = React.useState(false);
+			const [busy, setBusy] = React.useState(false);
+			const [error, setError] = React.useState(null);
+			const [exported, setExported] = React.useState(null);
+			const [importText, setImportText] = React.useState("");
+			const [plan, setPlan] = React.useState(null);
+			const [applied, setApplied] = React.useState(null);
+			const cwd = useCwd();
+
+			const skillCount = state?.skills?.skills?.length ?? 0;
+			const serverCount = state?.mcp?.servers?.length ?? 0;
+			const sourceCount = state?.sources?.length ?? 0;
+
+			const doExport = () =>
+				runForm(setBusy, setError, () => apiPost("bundle/export", { skills: mode, includeSecrets, cwd }), (result) => {
+					setExported(result);
+					notify("success", `${t("exportReady")} · ${formatBytes(result.bytes)}`);
+				});
+
+			const download = () => {
+				if (exported === null) return;
+				try {
+					const blob = new Blob([exported.text], { type: "application/json" });
+					const url = URL.createObjectURL(blob);
+					const link = document.createElement("a");
+					link.href = url;
+					link.download = exported.filename;
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					// 交给浏览器读取后再释放，避免下载被中断。
+					window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+				} catch (error) {
+					notify("error", errText(error));
+				}
+			};
+
+			/** 读一个本地文件到文本框（用户从别处拖进来的备份）。 */
+			const pickFile = async (event) => {
+				const file = event.target.files?.[0];
+				if (file === undefined) return;
+				try {
+					setImportText(await file.text());
+					setPlan(null);
+					setApplied(null);
+				} catch (error) {
+					notify("error", errText(error));
+				}
+			};
+
+			const doPlan = () =>
+				runForm(setBusy, setError, () => apiPost("bundle/plan", { text: importText, cwd }), (result) => {
+					setPlan(result);
+					setApplied(null);
+					if (result.ok === false) notify("error", (result.errors ?? []).join("；"));
+				});
+
+			const doImport = () =>
+				runForm(setBusy, setError, () => apiPost("bundle/import", { text: importText, cwd }), async (result) => {
+					setApplied(result);
+					await reload();
+					const failed = (result.summary?.skillsFailed ?? 0) + (result.summary?.serversFailed ?? 0);
+					notify(failed === 0 ? "success" : "info", failed === 0 ? t("importDone") : `${t("importDone")} · ${failed} ${t("failedCount")}`);
+				});
+
+			return h(
+				"div",
+				{ className: "smt-root" },
+				error !== null ? h(Notice, { kind: "error" }, error) : null,
+				h(
+					"div",
+					{ className: "smt-group" },
+					h(
+						"div",
+						{ className: "smt-groupHead" },
+						h("span", { className: "smt-groupName" }, t("backupExport")),
+						h("span", { className: "smt-groupCount" }, `${skillCount} / ${serverCount} / ${sourceCount}`)
+					),
+					h(
+						"div",
+						{ className: "smt-card" },
+						h(
+							"div",
+							{ className: "smt-cardMain" },
+							h("div", { className: "smt-desc" }, t("backupExportHint")),
+							h(
+								"div",
+								{ className: "smt-inline" },
+								h(
+									"label",
+									{ className: "smt-inline" },
+									h("input", { type: "radio", name: "smt-mode", checked: mode === "recipe", onChange: () => setMode("recipe") }),
+									h("span", { className: "smt-fieldLabel" }, t("modeRecipe"))
+								),
+								h(
+									"label",
+									{ className: "smt-inline" },
+									h("input", { type: "radio", name: "smt-mode", checked: mode === "full", onChange: () => setMode("full") }),
+									h("span", { className: "smt-fieldLabel" }, t("modeFull"))
+								)
+							),
+							h("div", { className: "smt-hint" }, mode === "recipe" ? t("modeRecipeHint") : t("modeFullHint")),
+							h(
+								"div",
+								{ className: "smt-inline" },
+								h(Switch, { checked: includeSecrets, onChange: setIncludeSecrets, label: t("includeSecrets") }),
+								h("span", { className: "smt-fieldLabel" }, t("includeSecrets"))
+							),
+							includeSecrets ? h(Notice, { kind: "error" }, t("secretsWarning")) : null
+						),
+						h(
+							"div",
+							{ className: "smt-cardActions" },
+							h("button", { type: "button", className: "smt-btn", "data-variant": "primary", disabled: busy, onClick: doExport }, busy ? h("span", { className: "smt-spin" }) : t("export")),
+							exported !== null ? h("button", { type: "button", className: "smt-btn", onClick: download }, t("download")) : null
+						)
+					),
+					exported !== null
+						? h(
+								"div",
+								{ className: "smt-card" },
+								h(
+									"div",
+									{ className: "smt-cardMain" },
+									h("div", { className: "smt-name" }, exported.filename),
+									h("div", { className: "smt-meta" }, `${t("size")}: ${formatBytes(exported.bytes)}`),
+									h(
+										"div",
+										{ className: "smt-meta" },
+										`${t("tabSkills")}: ${exported.summary.skills} (${t("modeRecipe")} ${exported.summary.recipeSkills} / ${t("modeFull")} ${exported.summary.fullSkills})`
+									),
+									h("div", { className: "smt-meta" }, `${t("tabMcp")}: ${exported.summary.servers} · ${t("tabSources")}: ${exported.summary.sources}`),
+									exported.summary.serversNeedingSecrets > 0
+										? h(Notice, { kind: "info" }, `${exported.summary.serversNeedingSecrets} ${t("serversNeedSecrets")}`)
+										: null,
+									exported.skipped?.length ? h(Notice, { kind: "info" }, `${t("skippedFiles")}: ${exported.skipped.length}`) : null
+								)
+							)
+						: null
+				),
+				h(
+					"div",
+					{ className: "smt-group" },
+					h(
+						"div",
+						{ className: "smt-groupHead" },
+						h("span", { className: "smt-groupName" }, t("backupImport")),
+						h("span", { className: "smt-groupCount" }, plan !== null ? String(plan.stats?.skills ?? 0) : "—")
+					),
+					h(
+						"div",
+						{ className: "smt-card" },
+						h(
+							"div",
+							{ className: "smt-cardMain" },
+							h("div", { className: "smt-desc" }, t("backupImportHint")),
+							h("input", { type: "file", accept: ".json,application/json", className: "smt-input", onChange: pickFile }),
+							h("textarea", {
+								className: "smt-textarea",
+								style: { minHeight: 110 },
+								placeholder: t("pasteHint"),
+								value: importText,
+								spellCheck: false,
+								onChange: (event) => {
+									setImportText(event.target.value);
+									setPlan(null);
+									setApplied(null);
+								}
+							})
+						),
+						h(
+							"div",
+							{ className: "smt-cardActions" },
+							h("button", { type: "button", className: "smt-btn", disabled: busy || importText.trim() === "", onClick: doPlan }, t("checkBundle")),
+							plan?.ok === true && plan.willWrite
+								? h("button", { type: "button", className: "smt-btn", "data-variant": "primary", disabled: busy, onClick: doImport }, busy ? h("span", { className: "smt-spin" }) : t("applyImport"))
+								: null
+						)
+					),
+					plan !== null && plan.ok === true
+						? h(
+								"div",
+								{ className: "smt-card" },
+								h(
+									"div",
+									{ className: "smt-cardMain" },
+									h("div", { className: "smt-name" }, t("planTitle")),
+									plan.meta?.exportedAt ? h("div", { className: "smt-meta" }, `${t("exportedAt")}: ${plan.meta.exportedAt}`) : null,
+									plan.meta?.generator?.version ? h("div", { className: "smt-meta" }, `${t("fromVersion")}: ${plan.meta.generator.version}`) : null,
+									// 技能逐条列出动作，让「会覆盖什么」一目了然。
+									h("div", { className: "smt-sep" }),
+									plan.skills.map((item) =>
+										h(
+											"div",
+											{ key: `s-${item.name}`, className: "smt-meta" },
+											`${item.name} · ${item.payload === "recipe" ? t("modeRecipe") : t("modeFull")} · ${item.action === "create" ? t("willCreate") : t("willOverwrite")}${item.blocked ? ` · ${item.blocked}` : ""}`
+										)
+									),
+									plan.servers.map((item) =>
+										h(
+											"div",
+											{ key: `m-${item.serverName}`, className: "smt-meta" },
+											`${item.serverName} · ${item.action === "create" ? t("willCreate") : t("willOverwrite")}${item.needsSecrets?.length ? ` · ${t("needsSecrets")}: ${item.needsSecrets.join(", ")}` : ""}${item.blocked ? ` · ${item.blocked}` : ""}`
+										)
+									),
+									(plan.warnings ?? []).map((warning, index) => h(Notice, { key: `w-${index}`, kind: "info" }, warning)),
+									plan.blockedCount > 0 ? h(Notice, { kind: "info" }, `${plan.blockedCount} ${t("blockedCount")}`) : null,
+									!plan.gitAvailable ? h(Notice, { kind: "info" }, t("gitMissingForRecipe")) : null
+								)
+							)
+						: null,
+					applied !== null && applied.ok === true
+						? h(
+								"div",
+								{ className: "smt-card" },
+								h(
+									"div",
+									{ className: "smt-cardMain" },
+									h("div", { className: "smt-name" }, t("importResult")),
+									h("div", { className: "smt-meta" }, `${t("tabSkills")}: ${applied.summary.skillsOk} ok / ${applied.summary.skillsFailed} ${t("failedCount")}`),
+									h("div", { className: "smt-meta" }, `${t("tabMcp")}: ${applied.summary.serversOk} ok / ${applied.summary.serversFailed} ${t("failedCount")}`),
+									applied.summary.drifted > 0 ? h(Notice, { kind: "info" }, `${applied.summary.drifted} ${t("driftedCount")}`) : null,
+									applied.skills.filter((s) => !s.ok).map((s, index) => h(Notice, { key: `sf-${index}`, kind: "error" }, `${s.name}: ${s.error}`)),
+									applied.servers.filter((s) => !s.ok).map((s, index) => h(Notice, { key: `mf-${index}`, kind: "error" }, `${s.serverName}: ${s.error}`))
+								)
+							)
+						: null
+				)
+			);
+		}
+
+		/** 字节数 → 人类可读。 */
+		function formatBytes(bytes) {
+			const value = Number(bytes) || 0;
+			if (value < 1024) return `${value} B`;
+			if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+			return `${(value / 1024 / 1024).toFixed(1)} MB`;
+		}
+
 		/** 由技能文件路径反查它所属的根（用于编辑时回填位置）。 */
 		function rootForFile(roots, file) {
 			if (typeof file !== "string" || file === "") return undefined;
@@ -1375,7 +1693,8 @@ window.__ModuleLoader__.load({
 						{ className: "smt-tabs" },
 						tabButton("skills", `${t("tabSkills")} (${state?.skills?.skills?.length ?? 0})`),
 						tabButton("mcp", `${t("tabMcp")} (${state?.mcp?.servers?.length ?? 0})`),
-						tabButton("sources", `${t("tabSources")} (${state?.sources?.length ?? 0})`)
+						tabButton("sources", `${t("tabSources")} (${state?.sources?.length ?? 0})`),
+						tabButton("backup", t("tabBackup"))
 					),
 					// 滚动区：主面板里由它承担滚动；设置页里自然展开交给宿主。
 					h(
@@ -1387,7 +1706,8 @@ window.__ModuleLoader__.load({
 							state === null && loading ? h("div", { className: "smt-empty" }, t("loading")) : null,
 							state !== null && tab === "skills" ? h(SkillsSection, { t, state, reload, notify }) : null,
 							state !== null && tab === "mcp" ? h(McpSection, { t, state, reload, notify }) : null,
-							state !== null && tab === "sources" ? h(SourcesSection, { t, state, reload, notify }) : null
+							state !== null && tab === "sources" ? h(SourcesSection, { t, state, reload, notify }) : null,
+							state !== null && tab === "backup" ? h(BackupSection, { t, state, reload, notify }) : null
 						)
 					)
 				)
