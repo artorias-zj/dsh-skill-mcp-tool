@@ -106,6 +106,7 @@ window.__ModuleLoader__.load({
 			install: "安装 / 更新",
 			installing: "正在克隆并安装…",
 			installedCount: "已安装 {count} 个技能",
+			excludedDirs: "已跳过仓库元数据/依赖目录",
 			skipped: "跳过 {count} 个不合规项",
 			gitMissing: "未检测到 git，无法从仓库安装",
 			noSources: "尚未记录任何远程来源",
@@ -205,6 +206,7 @@ window.__ModuleLoader__.load({
 			install: "Install / update",
 			installing: "Cloning and installing…",
 			installedCount: "Installed {count} skill(s)",
+			excludedDirs: "Skipped repository metadata / dependency directories",
 			skipped: "Skipped {count} invalid item(s)",
 			gitMissing: "git was not found — repository install unavailable",
 			noSources: "No remote sources recorded yet",
@@ -862,6 +864,11 @@ window.__ModuleLoader__.load({
 				error ? h(Notice, { kind: "error" }, error) : null,
 				result
 					? h(Notice, { kind: "success" }, `${t("installedCount").replace("{count}", String(result.installed.length))} · ${result.installed.map((i) => i.name).join(", ")}`)
+					: null,
+				// 如实说明被过滤掉的东西（.git / node_modules 等），
+				// 避免用户以为「装完了但仓库元数据去哪了」。
+				result?.excluded?.length
+					? h(Notice, { kind: "info" }, `${t("excludedDirs")}: ${[...new Set(result.excluded.map((item) => String(item).split("/").pop()))].join(", ")}`)
 					: null,
 				h(
 					Field,

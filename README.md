@@ -48,6 +48,7 @@ List order is **predictable**, so you never have to hunt through entries:
 - Plugin-registered skills (no file on disk) are listed read-only.
 - Create, edit, and delete skills through the built-in editor; frontmatter is validated before anything touches disk.
 - **Install / update from Git**: shallow-clone a repository (or a subdirectory of one), discover every valid skill inside, and copy it to the chosen root. Records the source so you can re-pull later; `git ls-remote` tells you whether an update exists.
+- **Junk directories are filtered out on write**: `.git`, `.hg`, `.svn`, `node_modules`, `__pycache__`, `.venv` and friends never land in the skill directory. When the repository root *is* the skill bundle (a `SKILL.md` at the top level), the clone's `.git` would otherwise be copied wholesale — worth several MB of commit history and remote URLs. The UI lists exactly what was skipped.
 
 **MCP servers**
 
