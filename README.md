@@ -49,6 +49,9 @@ List order is **predictable**, so you never have to hunt through entries:
 - Create, edit, and delete skills through the built-in editor; frontmatter is validated before anything touches disk.
 - **Install / update from Git**: shallow-clone a repository (or a subdirectory of one), discover every valid skill inside, and copy it to the chosen root. Records the source so you can re-pull later; `git ls-remote` tells you whether an update exists.
 - **Junk directories are filtered out on write**: `.git`, `.hg`, `.svn`, `node_modules`, `__pycache__`, `.venv` and friends never land in the skill directory. When the repository root *is* the skill bundle (a `SKILL.md` at the top level), the clone's `.git` would otherwise be copied wholesale — worth several MB of commit history and remote URLs. The UI lists exactly what was skipped.
+- **Type `/` in a session to pick a skill**: this plugin registers the skills it manages into DSH's skill registry, so the `/` menu matches and invokes them directly. A skill marked `disable-model-invocation: true` appears *only* there (the model never sees it), and a skill shown as disabled in the UI never appears in `/`. Changes take effect immediately — no restart.
+
+  > Why this plugin supplies its own provider: the host-level `@deepseek-ai/dsh-skill-filesystem` row is deliberately disabled by the web app (its comment reads “presets own local discovery”), leaving each agent preset to mount its own. On some presets that provider does not actually take effect — skills on disk then appear neither in `/` nor to the model. This plugin does not depend on the preset being correct; it registers the roots it manages itself.
 
 **MCP servers**
 
