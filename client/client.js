@@ -62,6 +62,8 @@ window.__ModuleLoader__.load({
 			skippedFiles: "跳过的文件",
 			serversNeedSecrets: "个服务器的密钥未导出，导入后需重新填写",
 			pasteHint: "在此粘贴配置内容，或从上方选择文件…",
+			chooseFile: "选择文件",
+			noFileChosen: "未选择任何文件",
 			checkBundle: "预检",
 			applyImport: "开始导入",
 			planTitle: "将要执行的操作",
@@ -193,6 +195,8 @@ window.__ModuleLoader__.load({
 			skippedFiles: "Skipped files",
 			serversNeedSecrets: "server(s) had their secrets omitted — you will need to re-enter them after importing",
 			pasteHint: "Paste the bundle contents here, or pick a file above…",
+			chooseFile: "Choose file",
+			noFileChosen: "No file selected",
 			checkBundle: "Review",
 			applyImport: "Import now",
 			planTitle: "What will happen",
@@ -366,11 +370,15 @@ window.__ModuleLoader__.load({
 .smt-fieldLabel{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
 .smt-input,.smt-textarea,.smt-select{width:100%;box-sizing:border-box;font:inherit;font-size:13px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);padding:6px 10px;outline:0}
 .smt-input,.smt-select{height:32px;padding:0 10px}
-/* 文件选择框：原生按钮在深色面板里是浅色系统样式，单独调成与其它控件一致。
- * ::file-selector-button 是标准写法；::-webkit-file-upload-button 兜旧 Chromium。 */
-.smt-input[type=file]{padding:4px 8px;color:var(--dsw-alias-label-secondary);cursor:pointer}
-.smt-input[type=file]::file-selector-button{margin-right:8px;font:inherit;font-size:12px;cursor:pointer;border-radius:6px;padding:3px 10px;border:1px solid var(--dsw-alias-border-l2);background:0 0;color:var(--dsw-alias-label-primary)}
-.smt-input[type=file]::file-selector-button:hover{background:var(--dsw-alias-interactive-bg-hover)}
+/* 文件选择：隐藏原生控件（保留可聚焦），只显示一个普通按钮 + 文件名。
+ * 原生 ::file-selector-button 会在输入框边框内再画一层带边框的按钮，
+ * 两层圆角矩形几乎相贴，是「元素重叠」观感的来源，因此整体不用原生外观。 */
+.smt-file{display:flex;align-items:center;gap:10px;min-width:0}
+.smt-fileInput{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;opacity:0}
+.smt-file>.smt-btn{cursor:pointer;flex:none}
+.smt-file:focus-within>.smt-btn{border-color:var(--dsw-alias-brand-primary)}
+.smt-fileName{min-width:0;font-size:12px;line-height:16px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.smt-fileName[data-empty]{color:var(--dsw-alias-label-tertiary)}
 .smt-textarea{min-height:120px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:18px;resize:vertical}
 .smt-input:focus-visible,.smt-textarea:focus-visible,.smt-select:focus-visible{border-color:var(--dsw-alias-brand-primary)}
 .smt-hint{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary)}
@@ -1339,6 +1347,7 @@ window.__ModuleLoader__.load({
 			const [error, setError] = React.useState(null);
 			const [exported, setExported] = React.useState(null);
 			const [importText, setImportText] = React.useState("");
+			const [fileName, setFileName] = React.useState("");
 			const [plan, setPlan] = React.useState(null);
 			const [applied, setApplied] = React.useState(null);
 			const cwd = useCwd();
@@ -1375,6 +1384,7 @@ window.__ModuleLoader__.load({
 			const pickFile = async (event) => {
 				const file = event.target.files?.[0];
 				if (file === undefined) return;
+				setFileName(file.name);
 				try {
 					setImportText(await file.text());
 					setPlan(null);
@@ -1490,7 +1500,24 @@ window.__ModuleLoader__.load({
 							"div",
 							{ className: "smt-cardMain" },
 							h("div", { className: "smt-desc" }, t("backupImportHint")),
-							h("input", { type: "file", accept: ".json,application/json", className: "smt-input", onChange: pickFile }),
+							// 不用原生文件控件的默认外观：它会在输入框的边框里再画一个
+							// 带边框的按钮，两层圆角矩形几乎贴在一起，高度压缩时看着像重叠。
+							// 这里把 input 视觉隐藏（但保留可聚焦性），只呈现一个普通按钮 + 文件名。
+							h(
+								"div",
+								{ className: "smt-file" },
+								h(
+									"label",
+									{ className: "smt-btn", "data-size": "sm" },
+									t("chooseFile"),
+									h("input", { type: "file", className: "smt-fileInput", accept: ".json,application/json", onChange: pickFile })
+								),
+								h(
+									"span",
+									{ className: "smt-fileName", title: fileName === "" ? undefined : fileName, "data-empty": fileName === "" ? "true" : undefined },
+									fileName === "" ? t("noFileChosen") : fileName
+								)
+							),
 							h("textarea", {
 								className: "smt-textarea",
 								style: { minHeight: 110 },
