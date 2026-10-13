@@ -79,7 +79,11 @@ Two payload modes, chosen at export time:
 
 ## Install
 
-```powershell
+```bash
+# From GitHub (recommended; works with any profile)
+dsh plugin --profile web add github:artorias-zj/dsh-skill-mcp-tool
+
+# The desktop profile also accepts the full URL
 dsh plugin --profile desktop add https://github.com/artorias-zj/dsh-skill-mcp-tool
 ```
 

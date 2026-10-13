@@ -89,7 +89,11 @@
 
 ## 安装
 
-```powershell
+```bash
+# 从 GitHub 安装（推荐，任何 profile 都能用）
+dsh plugin --profile web add github:artorias-zj/dsh-skill-mcp-tool
+
+# desktop profile 用完整地址也可以
 dsh plugin --profile desktop add https://github.com/artorias-zj/dsh-skill-mcp-tool
 ```
 
