@@ -1,6 +1,6 @@
 {
   "name": "dsh-skill-mcp-tool",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "DSH 插件：统一管理 Skills 与 MCP —— 设置菜单与主界面左侧栏双入口，支持从 Git/URL 获取与更新 skills，并对任意 Skill 与 MCP 服务器做热加载启用/停用。Unified Skills + MCP manager for DeepSeek Harness with hot-reload enable/disable toggles and Git-based skill install/update.",
   "license": "MIT",
   "author": "artorias-zj",
