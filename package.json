@@ -1,0 +1,64 @@
+{
+  "name": "dsh-skill-mcp-tool",
+  "version": "1.0.0",
+  "description": "DSH 插件：统一管理 Skills 与 MCP —— 设置菜单与主界面左侧栏双入口，支持从 Git/URL 获取与更新 skills，并对任意 Skill 与 MCP 服务器做热加载启用/停用。Unified Skills + MCP manager for DeepSeek Harness with hot-reload enable/disable toggles and Git-based skill install/update.",
+  "license": "MIT",
+  "author": "artorias-zj",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artorias-zj/dsh-skill-mcp-tool.git"
+  },
+  "homepage": "https://github.com/artorias-zj/dsh-skill-mcp-tool#readme",
+  "bugs": {
+    "url": "https://github.com/artorias-zj/dsh-skill-mcp-tool/issues"
+  },
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./client/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "plugin",
+    "skill",
+    "skills",
+    "mcp",
+    "hot-reload"
+  ],
+  "engines": {
+    "node": "^22.15.0 || >=24.0.0"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  },
+  "dependencies": {
+    "yaml": "^2.4.2"
+  }
+}

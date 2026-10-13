@@ -1,0 +1,134 @@
+# dsh-skill-mcp-tool
+
+English | [中文](README.zh.md)
+
+A DeepSeek Harness (DSH) plugin that puts **Skills and MCP servers under one roof**, reachable from both the settings menu and a main-interface sidebar entry — with **hot-reload enable/disable toggles** and **Git-based skill install/update**.
+
+## Features
+
+**Two entry points, one panel**
+
+- Settings menu → "技能与 MCP" / "Skills & MCP" page.
+- Main interface → a sidebar icon row that opens the same panel in the centre column.
+
+Both render the identical component, so the three tabs (Skills / MCP / Remote sources) behave the same wherever you open them.
+
+**Layout: the two entry points are handled separately**
+
+The host's layout contract differs between the centre panel and the settings page, so the shell has two modes selected by `data-surface`:
+
+- **Centre panel (opened from the sidebar icon)**: the host supplies neither padding nor a scroll container, so the plugin provides both — centred content with breathing room (up to 48px per side, shrinking responsively on narrow windows) plus its own scrolling.
+- **Settings page**: the host already renders the section inside its content column (padding and scrolling included), so the plugin adds nothing on top — no doubled inset, no nested scrollbars.
+
+**Scrolling: long skill lists stay reachable, with no visible scrollbar**
+
+In the centre panel only the list scrolls while **the title and tabs stay pinned to the top**, so the refresh button and tab strip remain reachable even at the bottom of a long list, with breathing room after the last row.
+
+**No visible scrollbar at all**: the wheel, trackpad, touch, and keyboard (arrow keys / PageUp / PageDown) all keep working — only the bar is no longer drawn. The horizontal insets therefore *always* equal the inner padding: symmetric left and right regardless of content length or whether scrolling is needed, with no sideways jump when a scrollbar would have appeared or disappeared. The same rules cover modals, so long forms still scroll.
+
+`scrollbar-gutter: stable` is deliberately *not* used: it reserves scrollbar width even when the content fits (measured: `stable` 15px, `stable both-edges` 30px), leaving an empty band on a page that has nothing to scroll. All three hiding mechanisms are declared — `scrollbar-width`, `-ms-overflow-style`, and `::-webkit-scrollbar` — so no browser falls back to a native bar that would skew the insets.
+
+**Ordering: alphabetical, always**
+
+List order is **predictable**, so you never have to hunt through entries:
+
+- **Skills**: grouped by source, with a fixed group order of **project → user → plugin → other** (it does not shift as skills come and go, so group headings stay put); **alphabetical by name within each group**.
+- **MCP servers**: managed and external rows are each sorted alphabetically by server name.
+- **Remote sources**: sorted alphabetically by repository label.
+- Sorting is **case-insensitive**: `Chrome_DevTools_MCP` sorts before `REA`, instead of all uppercase names clumping at the top. Only when two names are identical in lowercase does the raw string break the tie, keeping the order stable.
+- Managed rows are written to `cordis.patch.yml` in that same order, so the file and the UI never disagree.
+- Ordering is applied at the single choke point every write path goes through, so add/edit/enable/disable/delete can't bypass it.
+
+**Skills**
+
+- Lists every skill from all four standard roots, in official rank order: project `.dsh/skills` (100) → project `.agents/skills` (200) → user `~/.dsh/skills` (400) → user `~/.agents/skills` (500).
+- Handles both layouts: directory bundles (`<name>/SKILL.md`) and flat files (`<name>.md`), plus nested/categorised trees.
+- **Enable/disable is a lossless rename**: `SKILL.md` ⇄ `SKILL.md.disabled` (or `<name>.md` ⇄ `<name>.md.disabled`). The official provider only recognises the exact filenames, so the skill leaves the catalog while its files and `references/`, `scripts/`, `assets/` stay fully intact. The provider's watcher picks the change up on the next catalog refresh — **no restart**.
+- Malformed skills stay listed but flagged **格式不合规 / Invalid format**, so you can fix or delete them rather than being unable to see them.
+- Plugin-registered skills (no file on disk) are listed read-only.
+- Create, edit, and delete skills through the built-in editor; frontmatter is validated before anything touches disk.
+- **Install / update from Git**: shallow-clone a repository (or a subdirectory of one), discover every valid skill inside, and copy it to the chosen root. Records the source so you can re-pull later; `git ls-remote` tells you whether an update exists.
+
+**MCP servers**
+
+- Add, edit, delete and toggle `@deepseek-ai/dsh-mcp-client` rows, and inspect servers declared elsewhere in config read-only.
+- Shows live state per server: enabled/disabled, reconnection phase, and how many tools are currently registered.
+- Secret handling: API tokens and headers are **never read back to the browser** — only key names. Editing preserves keys you didn't retype, and lets you delete individual keys explicitly.
+- Type `${MY_TOKEN}` in any env or header value and it is written as a real `!!js` expression (`\`Bearer ${process.env.MY_TOKEN}\``) — DSH has no `${VAR}` interpolation, so this is the only mechanism that actually reads the environment. The `!!js` tag round-trips byte-exactly through every edit.
+
+## Install
+
+```powershell
+dsh plugin --profile desktop add https://github.com/artorias-zj/dsh-skill-mcp-tool
+```
+
+Or install from the DSH sidebar Plugins page by pointing at this directory. Then restart DSH so the client bundle is served.
+
+> **Restart required.** The plugin's client JavaScript is addressed by URL and cached by the browser/module system. Enabling the plugin compiles and mounts the host half immediately; the settings page and sidebar entry appear after a restart.
+
+## How hot reload works
+
+DSH has **no runtime API to add, remove, or restart an MCP connection**. A server is a loader row, and the supported way to change it is to edit its configuration and let HMR remount the row. This plugin writes to the profile's `cordis.patch.yml`, which DSH's HMR watches, then polls the loader to confirm the row actually remounted.
+
+- **MCP enable/disable** sets the row's `disabled` boolean → HMR disposes or mounts the connection in place.
+- **MCP add/edit** rewrites the row → HMR swaps in a fresh connection. Tool names stay stable across the swap.
+- **Skill enable/disable** renames a file → the provider's watcher invalidates the catalog.
+
+The panel reports what actually happened: when a change is written but the host has not finished remounting, it says so rather than claiming success.
+
+## Configuration isolation
+
+MCP rows are written inside a dedicated managed block:
+
+```yaml
+# >>> dsh-skill-mcp-tool:mcp:begin
+- insert:
+    - id: smt-mcp-<serverName>
+      name: "@deepseek-ai/dsh-mcp-client"
+      config: { ... }
+# <<< dsh-skill-mcp-tool:mcp:end
+```
+
+Everything outside the markers is preserved **byte for byte**, so other plugins' managed blocks (for example `dsh-skill-mcp-panel`) and your hand-written rows are never touched. Rows owned by other tools appear as read-only "external" servers. Writes take a `<file>.smt.lock` lock and use an atomic temp-file rename, so a concurrent writer cannot corrupt the file.
+
+## Plugin configuration
+
+Optional `config` on the row in `cordis.patch.yml`:
+
+| Field | Default | Meaning |
+|---|---|---|
+| `dshHome` | `$DSH_HOME` or `~/.dsh` | Harness home used to locate skill roots, the profile patch, and the source record |
+
+## Files it touches
+
+| Path | Purpose |
+|---|---|
+| `<profile>/cordis.patch.yml` | MCP server rows, inside the managed block |
+| `<dshHome>/skills/**` | Skills it installs, creates, edits, or toggles |
+| `<dshHome>/skill-mcp-tool/sources.json` | Index of Git install sources (an index only — deleting it never affects installed skills) |
+
+## HTTP routes
+
+All routes are same-origin, POST-only for writes, with an origin check that rejects cross-site requests.
+
+| Route | Purpose |
+|---|---|
+| `state` | Skills + MCP + sources + environment in one read |
+| `skill/set-enabled`, `skill/remove`, `skill/read`, `skill/write` | Skill management |
+| `skill/install`, `skill/update`, `skill/check-updates`, `skill/forget-source` | Git sources |
+| `mcp/list`, `mcp/save`, `mcp/remove`, `mcp/set-enabled` | MCP management |
+
+## Plugin Info
+
+| Field | Value |
+|---|---|
+| One-line value | Unified Skills + MCP manager with hot-reload toggles and Git-based skill install/update |
+| Category | Skills & MCP |
+| Supported profiles | desktop / web |
+| Compatibility | DeepSeek Harness 0.2.x; Node.js ^22.15 or >=24; Windows / macOS / Linux |
+| Permissions & services | Reads/writes the profile `cordis.patch.yml` and local skill roots; runs `git` for install/update; no telemetry |
+| License | MIT |
+
+## License
+
+MIT

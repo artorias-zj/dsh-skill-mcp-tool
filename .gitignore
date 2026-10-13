@@ -1,0 +1,12 @@
+# 依赖：本插件运行只需要 `yaml`。
+# 用 `pnpm install --ignore-scripts` 可复现。
+node_modules/
+
+# 受管块写入时的锁文件与同目录临时文件（写入过程中出现，正常会自行清理）。
+*.smt.lock
+.dsh-smt-tmp-*
+
+# 编辑器 / 系统杂项
+.DS_Store
+Thumbs.db
+*.log

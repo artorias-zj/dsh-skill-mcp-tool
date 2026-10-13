@@ -1,0 +1,11 @@
+# dsh-skill-mcp-tool bundle 层：插入 Skills + MCP 统一管理插件的宿主行。
+#
+# 装载后：
+#   - 宿主半区（lib/index.js）挂载 /dsh-skill-mcp-tool/* HTTP 路由；
+#   - 客户端半区（client/client.js）注册设置菜单页与左侧栏入口。
+#
+# MCP 服务器行由插件自己在 profile 的 cordis.patch.yml 里以受管块维护
+# （标记 `# >>> dsh-skill-mcp-tool:mcp:begin`），与本文件无关。
+- insert:
+    - id: dsh-skill-mcp-tool
+      name: dsh-skill-mcp-tool
