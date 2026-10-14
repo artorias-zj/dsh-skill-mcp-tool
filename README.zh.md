@@ -1,5 +1,10 @@
 # dsh-skill-mcp-tool
 
+[![已收录于 DSH Plugin Hub](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/zh/plugins/artorias-zj/dsh-skill-mcp-tool)
+[![version](https://img.shields.io/github/v/tag/artorias-zj/dsh-skill-mcp-tool?label=version&color=2ea44f)](https://github.com/artorias-zj/dsh-skill-mcp-tool/releases)
+[![license](https://img.shields.io/github/license/artorias-zj/dsh-skill-mcp-tool?color=2ea44f)](LICENSE)
+[![node](https://img.shields.io/badge/node-%5E22.15%20%7C%7C%20%3E%3D24-2ea44f)](package.json)
+
 [English](README.md) | 中文
 
 一个 DeepSeek Harness (DSH) 插件：把 **Skills 与 MCP 服务器统一到一个面板**，设置菜单与主界面左侧栏都有入口，支持**热加载启用/停用**与**从 Git 获取/更新 skills**。

@@ -1,5 +1,10 @@
 # dsh-skill-mcp-tool
 
+[![Listed on DSH Plugin Hub](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/artorias-zj/dsh-skill-mcp-tool)
+[![version](https://img.shields.io/github/v/tag/artorias-zj/dsh-skill-mcp-tool?label=version&color=2ea44f)](https://github.com/artorias-zj/dsh-skill-mcp-tool/releases)
+[![license](https://img.shields.io/github/license/artorias-zj/dsh-skill-mcp-tool?color=2ea44f)](LICENSE)
+[![node](https://img.shields.io/badge/node-%5E22.15%20%7C%7C%20%3E%3D24-2ea44f)](package.json)
+
 English | [中文](README.zh.md)
 
 A DeepSeek Harness (DSH) plugin that puts **Skills and MCP servers under one roof**, reachable from both the settings menu and a main-interface sidebar entry — with **hot-reload enable/disable toggles** and **Git-based skill install/update**.
