@@ -16,7 +16,7 @@
 - 设置菜单 → 「技能与 MCP」页。
 - 主界面 → 左侧栏图标行，在中央主区打开同一个面板。
 
-两处渲染的是同一个组件，三个页签（技能 / MCP / 远程来源）行为完全一致。
+两处渲染的是同一个组件，四个页签（技能 / MCP / 远程来源 / 备份）行为完全一致。
 
 **版面：两个入口分开处理**
 
@@ -67,6 +67,17 @@
 - **在会话里输入 `/` 就能选到技能**：本插件会把管理的技能注册进 DSH 的技能注册表，`/` 菜单因此可以直接匹配并调用它们。`disable-model-invocation: true` 的技能只会出现在这里（模型侧看不到），界面里显示为「停用」的技能不会出现在 `/` 中。改动技能后菜单即时更新，无需重启。
 
   > 为什么要自己提供一份：宿主层的 `@deepseek-ai/dsh-skill-filesystem` 被 web 端刻意禁用（其注释写明 “presets own local discovery”），改由每个 agent 预设自行挂载。实测在部分预设下该提供方并未生效 —— 磁盘上的技能既不在 `/` 里，模型也加载不到。本插件不依赖预设是否正常，直接注册自己管理的根。
+
+**代理：四个页签上方的 Git 代理设置**
+
+不少网络环境下直连 `git clone` 会超时，导致技能根本装不上、也更新不了。插件在**四个页签上方**放了一条常驻的代理设置 —— 它是四个页签里**所有 Git 操作**（安装、更新、检查更新）的共同前置条件，不属于任何一个页签。
+
+- **命令级注入，绝不改全局配置**：代理以 `git -c http.proxy=… -c https.proxy=… <子命令>` 的形式传入。**你的全局 git 配置一个字节都不会被改写** —— 设置前后各执行一次 `git config --global --get http.proxy` 对比即可确认。插件只给自己的调用加参数。
+- **关闭 = 「别管」，不是「清空」**：开关关闭时一个 `-c` 参数都不加，于是 git 沿用你自己配置的路径（直连，或你自己 `git config` 开的代理）。`git p-on` 这类全局设置照常有效。
+- **一个「测试」按钮回答「是网络问题还是仓库问题」**：它会同时探两次远端 —— 一次走代理、一次直连 —— 两个结果一起给出，哪条路断了看一眼就知道。本机压根没装 git 时，安装弹窗会单独提示。
+- **代理地址里的凭据按密钥对待**：`http://user:pass@host:port` 里的口令回给浏览器时一律脱敏成 `http://user:***@host:port`，导出配置时**默认不写明文**（除非你勾选「包含 MCP 密钥」）。输入框显示的就是脱敏串；原样保存、或只改主机/端口，**已存口令都会被保留**而不会被清掉。若配置包里带着 `***` 而本机没有对应口令，预检会明确提示，而不是落一个空口令、到后面才报一个难以排查的错。
+- **支持的协议**：`http`、`https`、`socks4`、`socks4a`、`socks5`、`socks5h`。地址为空或格式不对会带可读原因拒绝，而不是悄悄把代理关掉。
+- 导入配置时会**先应用代理、再开始克隆**，所以带着代理的配置包正好能救活一台还没有可用直连线路的新电脑。
 
 **MCP 服务器**
 
@@ -146,6 +157,7 @@ MCP 行写在专属受管块内：
 | `<profile>/cordis.patch.yml` | MCP 服务器行，位于受管块内 |
 | `<dshHome>/skills/**` | 安装、新建、编辑或切换的技能 |
 | `<dshHome>/skill-mcp-tool/sources.json` | Git 安装来源索引（仅为索引 —— 删除它不影响已安装技能） |
+| `<dshHome>/skill-mcp-tool/settings.json` | 插件设置 —— 目前只有 Git 代理。刻意不写进 `cordis.patch.yml`：本插件只拥有自己 MCP 标记之间的字节 |
 
 ## HTTP 路由
 
@@ -153,10 +165,11 @@ MCP 行写在专属受管块内：
 
 | 路由 | 用途 |
 |---|---|
-| `state` | 一次读取技能 + MCP + 来源 + 环境信息 |
+| `state` | 一次读取技能 + MCP + 来源 + 代理 + 环境信息 |
 | `skill/set-enabled`、`skill/remove`、`skill/read`、`skill/write` | 技能管理 |
 | `skill/install`、`skill/update`、`skill/check-updates`、`skill/forget-source` | Git 来源 |
 | `mcp/list`、`mcp/save`、`mcp/remove`、`mcp/set-enabled` | MCP 管理 |
+| `proxy/get`、`proxy/save`、`proxy/test` | Git 代理：读取 / 保存 / 双路径探针 |
 | `bundle/export`、`bundle/plan`、`bundle/import` | 配置导出 / 预检 / 导入 |
 
 ## 插件信息
@@ -167,7 +180,7 @@ MCP 行写在专属受管块内：
 | 分类 | Skills & MCP |
 | 支持 profile | desktop / web |
 | 兼容性 | DeepSeek Harness 0.2.x；Node.js ^22.15 或 >=24；Windows / macOS / Linux |
-| 权限与服务 | 读写 profile 的 `cordis.patch.yml` 与本地技能根；安装/更新时调用 `git`；无遥测 |
+| 权限与服务 | 读写 profile 的 `cordis.patch.yml` 与本地技能根；安装/更新时调用 `git`（可选走你配置的代理）；无遥测 |
 | 许可证 | MIT |
 
 ## 许可证

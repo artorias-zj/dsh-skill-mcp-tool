@@ -16,7 +16,7 @@ A DeepSeek Harness (DSH) plugin that puts **Skills and MCP servers under one roo
 - Settings menu → "技能与 MCP" / "Skills & MCP" page.
 - Main interface → a sidebar icon row that opens the same panel in the centre column.
 
-Both render the identical component, so the three tabs (Skills / MCP / Remote sources) behave the same wherever you open them.
+Both render the identical component, so the four tabs (Skills / MCP / Remote sources / Backup) behave the same wherever you open them.
 
 **Layout: the two entry points are handled separately**
 
@@ -57,6 +57,17 @@ List order is **predictable**, so you never have to hunt through entries:
 - **Type `/` in a session to pick a skill**: this plugin registers the skills it manages into DSH's skill registry, so the `/` menu matches and invokes them directly. A skill marked `disable-model-invocation: true` appears *only* there (the model never sees it), and a skill shown as disabled in the UI never appears in `/`. Changes take effect immediately — no restart.
 
   > Why this plugin supplies its own provider: the host-level `@deepseek-ai/dsh-skill-filesystem` row is deliberately disabled by the web app (its comment reads “presets own local discovery”), leaving each agent preset to mount its own. On some presets that provider does not actually take effect — skills on disk then appear neither in `/` nor to the model. This plugin does not depend on the preset being correct; it registers the roots it manages itself.
+
+**Proxy: a Git proxy field above the tabs**
+
+On many networks a direct `git clone` of a repository times out, which makes installing and updating skills impossible. A **proxy bar sits above the four tabs** — it is a prerequisite shared by every Git operation in every tab (install, update, check for updates), not a setting belonging to one of them.
+
+- **Command-scoped, never global.** The address is injected as `git -c http.proxy=… -c https.proxy=… <subcommand>`. **Your global git config is never rewritten** — try `git config --global --get http.proxy` before and after; it is untouched. The plugin only adds flags to its own calls.
+- **Off means "leave it alone", not "clear it".** With the switch off, no `-c` flags are added at all, so git falls back to whatever you configured globally (direct, or your own `git config` proxy). A `git p-on`-style global setting keeps working.
+- **One Test button answers "is it the network or the repo?"** It probes the remote twice — once through the proxy and once direct — and reports both, so you can see at a glance which path is broken. If git isn't installed at all, the install dialog says so separately.
+- **Credentials are treated as secrets.** A URL like `http://user:pass@host:port` has its password masked (`http://user:***@host:port`) everywhere it is sent to the browser, and is **omitted from exported bundles unless you tick "Include MCP secrets"**. The field echoes the masked form; saving it unchanged, or editing only the host/port, **keeps the stored password** rather than clearing it. If a bundle carries a masked password and this machine has none, the import plan says so instead of writing an empty one that would fail confusingly later.
+- **Supported schemes**: `http`, `https`, `socks4`, `socks4a`, `socks5`, `socks5h`. A blank or malformed address is rejected with a readable reason rather than silently disabling the proxy.
+- The chosen proxy is applied **before** any clone during an import, so a bundle that carries a proxy can rescue a fresh machine that has no working direct route yet.
 
 **MCP servers**
 
@@ -136,6 +147,7 @@ Optional `config` on the row in `cordis.patch.yml`:
 | `<profile>/cordis.patch.yml` | MCP server rows, inside the managed block |
 | `<dshHome>/skills/**` | Skills it installs, creates, edits, or toggles |
 | `<dshHome>/skill-mcp-tool/sources.json` | Index of Git install sources (an index only — deleting it never affects installed skills) |
+| `<dshHome>/skill-mcp-tool/settings.json` | Plugin settings — currently just the Git proxy. Kept out of `cordis.patch.yml` on purpose: this plugin owns only the bytes between its MCP markers |
 
 ## HTTP routes
 
@@ -143,10 +155,11 @@ All routes are same-origin, POST-only for writes, with an origin check that reje
 
 | Route | Purpose |
 |---|---|
-| `state` | Skills + MCP + sources + environment in one read |
+| `state` | Skills + MCP + sources + proxy + environment in one read |
 | `skill/set-enabled`, `skill/remove`, `skill/read`, `skill/write` | Skill management |
 | `skill/install`, `skill/update`, `skill/check-updates`, `skill/forget-source` | Git sources |
 | `mcp/list`, `mcp/save`, `mcp/remove`, `mcp/set-enabled` | MCP management |
+| `proxy/get`, `proxy/save`, `proxy/test` | Git proxy: read / write / probe both paths |
 | `bundle/export`, `bundle/plan`, `bundle/import` | Settings export / review / import |
 
 ## Plugin Info
@@ -157,7 +170,7 @@ All routes are same-origin, POST-only for writes, with an origin check that reje
 | Category | Skills & MCP |
 | Supported profiles | desktop / web |
 | Compatibility | DeepSeek Harness 0.2.x; Node.js ^22.15 or >=24; Windows / macOS / Linux |
-| Permissions & services | Reads/writes the profile `cordis.patch.yml` and local skill roots; runs `git` for install/update; no telemetry |
+| Permissions & services | Reads/writes the profile `cordis.patch.yml` and local skill roots; runs `git` for install/update (optionally through a proxy you configure); no telemetry |
 | License | MIT |
 
 ## License

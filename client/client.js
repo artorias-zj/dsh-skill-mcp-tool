@@ -76,6 +76,7 @@ window.__ModuleLoader__.load({
 			gitMissingForRecipe: "本机没有 git，配方模式的技能无法重新拉取；请改用完整内容模式导出。",
 			importResult: "导入结果",
 			importDone: "导入完成",
+			driftedCount: "个技能的上游已变化，拿到的不是导出时的版本",
 			failedCount: "失败",
 			search: "搜索名称或描述…",
 			enabled: "已启用",
@@ -159,7 +160,27 @@ window.__ModuleLoader__.load({
 			sourceUserDsh: "用户 .dsh",
 			sourceUserAgents: "user .agents",
 			patchFile: "配置文件",
-			gitVersion: "git"
+			gitVersion: "git",
+			proxyLabel: "Git 代理",
+			proxyPlaceholder: "http://127.0.0.1:2333",
+			proxyHint: "从 Git 安装/更新技能时使用；留空即沿用全局 git 配置（不改动你的全局设置，只作用于本插件的 git 调用）",
+			proxyEnable: "使用代理",
+			proxySave: "保存代理",
+			proxySaved: "代理设置已保存",
+			proxyTest: "测试",
+			proxyTesting: "正在测试…",
+			proxyTestTitle: "连通性测试",
+			proxyViaProxy: "走代理",
+			proxyDirect: "直连",
+			proxyReachable: "可达",
+			proxyUnreachable: "不可达",
+			proxyHasCredentials: "已保存的代理地址含凭据，口令不会显示在界面上",
+			proxyEmpty: "填入形如 http://主机:端口 的地址，支持 socks5://",
+			proxyOn: "本次安装将使用代理：",
+			proxyOff: "未启用代理，将沿用全局 git 配置（直连）",
+			importProxyApplied: "配置包中的代理设置已应用：",
+			planProxy: "代理设置将被更改",
+			proxyNeedsPassword: "配置包中的代理口令未导出，导入后需在代理栏重新填写"
 		};
 		const en = {
 			nav: "Skills & MCP",
@@ -205,6 +226,7 @@ window.__ModuleLoader__.load({
 			gitMissingForRecipe: "git is not available here, so recipe skills cannot be re-pulled. Export with full contents instead.",
 			importResult: "Import result",
 			importDone: "Import finished",
+			driftedCount: "skill(s) had a newer upstream than the exported snapshot",
 			failedCount: "failed",
 			search: "Search name or description…",
 			enabled: "Enabled",
@@ -288,7 +310,27 @@ window.__ModuleLoader__.load({
 			sourceUserDsh: "user .dsh",
 			sourceUserAgents: "user .agents",
 			patchFile: "Config file",
-			gitVersion: "git"
+			gitVersion: "git",
+			proxyLabel: "Git proxy",
+			proxyPlaceholder: "http://127.0.0.1:2333",
+			proxyHint: "Used when installing or updating skills from Git. Leave empty to keep your global git config — this plugin never rewrites it and only adds flags to its own git calls.",
+			proxyEnable: "Use proxy",
+			proxySave: "Save proxy",
+			proxySaved: "Proxy settings saved",
+			proxyTest: "Test",
+			proxyTesting: "Testing…",
+			proxyTestTitle: "Connectivity test",
+			proxyViaProxy: "via proxy",
+			proxyDirect: "direct",
+			proxyReachable: "reachable",
+			proxyUnreachable: "unreachable",
+			proxyHasCredentials: "The saved proxy URL embeds credentials; the password is never shown here",
+			proxyEmpty: "Enter something like http://host:port — socks5:// is supported too",
+			proxyOn: "This install will use the proxy:",
+			proxyOff: "Proxy is off — your global git config (direct) will be used",
+			importProxyApplied: "Proxy settings from the bundle applied:",
+			planProxy: "Proxy settings will change",
+			proxyNeedsPassword: "The bundle's proxy password was not exported — re-enter it in the proxy bar after importing"
 		};
 
 		// ── 样式（类名前缀 smt-，只引用 --dsw-alias-* 主题变量）────────────────
@@ -362,6 +404,18 @@ window.__ModuleLoader__.load({
 .smt-fieldLabel{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
 .smt-input,.smt-textarea,.smt-select{width:100%;box-sizing:border-box;font:inherit;font-size:13px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);padding:6px 10px;outline:0}
 .smt-input,.smt-select{height:32px;padding:0 10px}
+/* 代理条：四个页签**上方**的常驻设置。刻意做成横排一行 —— 它是「环境前置条件」，
+ * 不属于任何一个页签的内容；放在页签下会让人以为切页签就换了代理。
+ * 竖排窄屏时 URL 输入框独占整行，按钮换行到下一行（见下方 media query）。 */
+.smt-proxy{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:8px 12px}
+.smt-proxyField{display:flex;align-items:center;gap:8px;flex:1;min-width:240px}
+.smt-proxyField>.smt-input{flex:1;min-width:0}
+.smt-proxyUrl{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.smt-proxyActions{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap}
+/* 结果徽章：把「走代理通不通」和「直连通不通」并排给出来，
+ * 一眼就能分清是网络路径的问题还是仓库本身的问题。 */
+.smt-probe{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;line-height:16px;color:var(--dsw-alias-label-secondary)}
+.smt-probeItem{display:inline-flex;align-items:center;gap:4px}
 /* 文件选择：隐藏原生控件（保留可聚焦），只显示一个普通按钮 + 文件名。
  * 原生 ::file-selector-button 会在输入框边框内再画一层带边框的按钮，
  * 两层圆角矩形几乎相贴，是「元素重叠」观感的来源，因此整体不用原生外观。 */
@@ -652,6 +706,107 @@ window.__ModuleLoader__.load({
 			);
 		}
 
+		/**
+		 * 代理条 —— 四个页签**上方**的常驻设置。
+		 *
+		 * 为什么放在页签之上而不是某个页签里：代理是「四个页签里所有 Git 操作」
+		 * 的共同前置条件（安装、更新、检查更新），不属于任何一个页签的内容。
+		 * 放在页签下会让人以为切页签就换了代理设置。
+		 *
+		 * 输入框里显示的口令是 `***`；提交时宿主会用已存口令还原（`mergeProxyUrl`），
+		 * 因此「看一眼再保存」不会把口令清掉，而改动主机/端口也照样生效。
+		 */
+		function ProxyBar({ t, incoming, reload, notify }) {
+			const [enabled, setEnabled] = React.useState(false);
+			const [url, setUrl] = React.useState("");
+			const [busy, setBusy] = React.useState(false);
+			const [probing, setProbing] = React.useState(false);
+			const [probe, setProbe] = React.useState(null);
+
+			// 宿主数据变化（首次加载、导入配置后重载）时对齐本地输入框。
+			React.useEffect(() => {
+				setEnabled(incoming?.enabled === true);
+				setUrl(typeof incoming?.url === "string" ? incoming.url : "");
+				setProbe(null);
+			}, [incoming?.enabled, incoming?.url]);
+
+			const save = () =>
+				runBusy(setBusy, "save", () => apiPost("proxy/save", { proxy: { enabled, url } }), {
+					notify,
+					// 必须重载：安装弹窗与来源页读的是 state 里的代理，
+					// 不刷新就会拿旧值告诉用户「本次不走代理」。
+					reload,
+					success: t("proxySaved")
+				});
+
+			const test = async () => {
+				setProbing(true);
+				setProbe(null);
+				try {
+					setProbe(await apiPost("proxy/test", { proxy: { enabled, url } }));
+				} catch (error) {
+					notify("error", errText(error));
+				} finally {
+					setProbing(false);
+				}
+			};
+
+			// 探针结果 → 一枚徽章。`ok=false` 时把 host 给的 git 错误挂到 title 上，
+			// 界面保持一行干净的同时仍能查到原因。
+			const probeBadge = (label, result) =>
+				result === undefined
+					? null
+					: h(
+							"span",
+							{ className: "smt-probeItem", title: result.ok ? "" : result.error ?? "" },
+							label,
+							h("span", { className: "smt-badge", "data-tone": result.ok ? "on" : "error" }, result.ok ? t("proxyReachable") : t("proxyUnreachable"))
+						);
+
+			return h(
+				"div",
+				{ className: "smt-proxy" },
+				h(
+					"label",
+					{ className: "smt-inline", title: t("proxyEnable") },
+					h(Switch, { checked: enabled, onChange: setEnabled, label: t("proxyEnable") }),
+					h("span", { className: "smt-fieldLabel" }, t("proxyLabel"))
+				),
+				h(
+					"div",
+					{ className: "smt-proxyField" },
+					h("input", {
+						type: "text",
+						className: "smt-input smt-proxyUrl",
+						value: url,
+						placeholder: t("proxyPlaceholder"),
+						spellCheck: false,
+						"aria-label": t("proxyLabel"),
+						onChange: (event) => setUrl(event.target.value)
+					}),
+					probe !== null
+						? h(
+								"div",
+								{ className: "smt-probe", title: t("proxyTestTitle") },
+								probeBadge(t("proxyViaProxy"), probe.viaProxy),
+								probeBadge(t("proxyDirect"), probe.direct)
+							)
+						: null
+				),
+				h(
+					"div",
+					{ className: "smt-proxyActions" },
+					h("button", { type: "button", className: "smt-btn", "data-size": "sm", disabled: probing || url.trim() === "", onClick: () => void test() }, probing ? [h("span", { key: "s", className: "smt-spin" }), ` ${t("proxyTesting")}`] : t("proxyTest")),
+					h("button", { type: "button", className: "smt-btn", "data-size": "sm", "data-variant": "primary", disabled: busy, onClick: () => void save() }, busy ? h("span", { className: "smt-spin" }) : t("proxySave"))
+				),
+				h(
+					"div",
+					{ className: "smt-hint" },
+					incoming?.hasCredentials === true ? t("proxyHasCredentials") : url.trim() === "" && !enabled ? t("proxyEmpty") : t("proxyHint")
+				)
+			);
+		}
+
 		function Modal({ title, onClose, children, footer }) {
 			React.useEffect(() => {
 				const onKey = (event) => {
@@ -889,12 +1044,12 @@ window.__ModuleLoader__.load({
 							}
 						})
 					: null,
-				installer ? h(Installer, { t, roots, onClose: () => setInstaller(false), reload, notify }) : null
+				installer ? h(Installer, { t, roots, proxy: state?.proxy?.active ?? "", onClose: () => setInstaller(false), reload, notify }) : null
 			);
 		}
 
 		/** 从 Git 安装技能的对话框。 */
-		function Installer({ t, roots, onClose, reload, notify }) {
+		function Installer({ t, roots, proxy, onClose, reload, notify }) {
 			const cwd = useCwd();
 			const [form, setForm] = React.useState({
 				url: "",
@@ -929,6 +1084,9 @@ window.__ModuleLoader__.load({
 					]
 				},
 				error ? h(Notice, { kind: "error" }, error) : null,
+				// 明确告知这次克隆走不走代理。装不上时用户第一件要确认的就是这件事，
+				// 而代理条在弹窗后面、看不见，所以这里必须复述一遍。
+				h(Notice, { kind: proxy === "" ? "info" : "success" }, proxy === "" ? t("proxyOff") : `${t("proxyOn")} ${proxy}`),
 				result
 					? h(Notice, { kind: "success" }, `${t("installedCount").replace("{count}", String(result.installed.length))} · ${result.installed.map((i) => i.name).join(", ")}`)
 					: null,
@@ -1560,7 +1718,12 @@ window.__ModuleLoader__.load({
 									),
 									(plan.warnings ?? []).map((warning, index) => h(Notice, { key: `w-${index}`, kind: "info" }, warning)),
 									plan.blockedCount > 0 ? h(Notice, { kind: "info" }, `${plan.blockedCount} ${t("blockedCount")}`) : null,
-									!plan.gitAvailable ? h(Notice, { kind: "info" }, t("gitMissingForRecipe")) : null
+									!plan.gitAvailable ? h(Notice, { kind: "info" }, t("gitMissingForRecipe")) : null,
+									// 代理会被配置包改写时说一声：这不是「只导入技能」，网络路径也跟着变了。
+									plan.proxy?.changed === true
+										? h(Notice, { kind: "info" }, `${t("planProxy")} → ${plan.proxy.incoming?.enabled ? plan.proxy.incoming.url : t("proxyOff")}`)
+										: null,
+									plan.proxy?.needsPassword === true ? h(Notice, { kind: "info" }, t("proxyNeedsPassword")) : null
 								)
 							)
 						: null,
@@ -1575,6 +1738,7 @@ window.__ModuleLoader__.load({
 									h("div", { className: "smt-meta" }, `${t("tabSkills")}: ${applied.summary.skillsOk} ok / ${applied.summary.skillsFailed} ${t("failedCount")}`),
 									h("div", { className: "smt-meta" }, `${t("tabMcp")}: ${applied.summary.serversOk} ok / ${applied.summary.serversFailed} ${t("failedCount")}`),
 									applied.summary.drifted > 0 ? h(Notice, { kind: "info" }, `${applied.summary.drifted} ${t("driftedCount")}`) : null,
+									applied.proxy?.applied === true ? h(Notice, { kind: "info" }, `${t("importProxyApplied")} ${applied.proxy.active?.url ?? ""}`) : null,
 									applied.skills.filter((s) => !s.ok).map((s, index) => h(Notice, { key: `sf-${index}`, kind: "error" }, `${s.name}: ${s.error}`)),
 									applied.servers.filter((s) => !s.ok).map((s, index) => h(Notice, { key: `mf-${index}`, kind: "error" }, `${s.serverName}: ${s.error}`))
 								)
@@ -1707,6 +1871,10 @@ window.__ModuleLoader__.load({
 					error !== null
 						? h(Notice, { kind: "error", onRetry: () => void reload(), retryLabel: t("retry") }, `${t("loadFailed")}: ${error}`)
 						: null,
+					// 代理条：四个页签的**共同前置条件**，所以放在页签之上。
+					// 状态未知时也渲染（用默认值），否则加载失败就再也改不了代理 ——
+					// 而「加载失败」恰恰是最需要改代理的时候。
+					h(ProxyBar, { t, incoming: state?.proxy?.proxy, reload, notify }),
 					h(
 						"div",
 						{ className: "smt-tabs" },
