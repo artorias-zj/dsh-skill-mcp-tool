@@ -2036,6 +2036,11 @@ window.__ModuleLoader__.load({
 					// 状态未知时也渲染（用默认值），否则加载失败就再也改不了代理 ——
 					// 而「加载失败」恰恰是最需要改代理的时候。
 					h(ProxyBar, { t, incoming: state?.proxy?.proxy, reload, notify }),
+					// 自身更新条：位于页签**上方**，与代理条同处固定区 ——
+					// 版本是「这是哪个版本在跑」的全局信息，不属于任何一个页签，
+					// 放在页签下会让人以为切页签就换了版本。放这里也保证技能再多
+					// 也不会把它挤出视野。
+					h(UpdateBar, { t, plugin: state?.plugin, notify }),
 					h(
 						"div",
 						{ className: "smt-tabs" },
@@ -2044,9 +2049,6 @@ window.__ModuleLoader__.load({
 						tabButton("sources", `${t("tabSources")} (${state?.sources?.length ?? 0})`),
 						tabButton("backup", t("tabBackup"))
 					),
-					// 自身更新条：位于页签之下、滚动区之上，所以常驻可见；
-					// 内容多到要滚动时它也不会被滚走，随时能检查或更新。
-					h(UpdateBar, { t, plugin: state?.plugin, notify }),
 					// 滚动区：主面板里由它承担滚动；设置页里自然展开交给宿主。
 					h(
 						"div",
