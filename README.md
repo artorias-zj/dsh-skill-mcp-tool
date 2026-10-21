@@ -86,6 +86,18 @@ On many networks a direct `git clone` of a repository times out, which makes ins
 - Secret handling: API tokens and headers are **never read back to the browser** — only key names. Editing preserves keys you didn't retype, and lets you delete individual keys explicitly.
 - Type `${MY_TOKEN}` in any env or header value and it is written as a real `!!js` expression (`\`Bearer ${process.env.MY_TOKEN}\``) — DSH has no `${VAR}` interpolation, so this is the only mechanism that actually reads the environment. The `!!js` tag round-trips byte-exactly through every edit.
 
+**MCP servers that require OAuth**
+
+Streamable-HTTP servers behind OAuth (Linear, Notion, Sentry and many hosted MCP endpoints) work too, even though DSH itself does not support it:
+
+- **Why the plugin has to do it.** `@deepseek-ai/dsh-mcp-client` builds its transport as `new StreamableHTTPClientTransport(url, { requestInit: { headers } })` — its config schema has only `url` and `headers`, **no `authProvider`**, and it never surfaces `UnauthorizedError`. So there is no hook to hand DSH an OAuth provider. The plugin runs the authorization-code flow itself and writes the resulting token into that row's `Authorization` header, which DSH then sends like any static bearer.
+- **Standards-based, no secrets to register.** It discovers the protected-resource metadata (RFC 9728) and authorization-server metadata (RFC 8414 / OIDC), registers itself as a public client (RFC 7591), and uses **PKCE S256** with no client secret. `resource` is sent per RFC 8707 so the token is scoped to that server.
+- **The browser does the login.** The callback listener binds **only `127.0.0.1`** on a random port, validates `state` with a constant-time compare, and shuts down as soon as the code arrives (5-minute timeout).
+- **Tokens never reach the browser.** The UI sees only "authorized / expired", the expiry time, and whether a refresh token exists. `refresh_token` lives in `<dshHome>/skill-mcp-tool/oauth.json` (mode 600); only the access token is written into `cordis.patch.yml`.
+- **Refresh is explicit.** A *Refresh token* button rotates the access token and rewrites the row, which makes DSH remount it. Servers without a refresh token say so up front — they need re-authorization when they expire.
+- **Disconnect cleans up.** It deletes the stored record *and* removes the `Authorization` header it wrote, so the row does not keep a dead token.
+- A hand-written static `Authorization` header is recognised and reported as such — that row needs no OAuth flow.
+
 **Backup: export / import your setup (for moving machines)**
 
 The **Backup** tab packs everything this plugin manages — **Skills + MCP servers + Git source records** — into a single JSON file you can import on a new machine.
@@ -160,6 +172,7 @@ Optional `config` on the row in `cordis.patch.yml`:
 | `<dshHome>/skill-mcp-tool/settings.json` | Plugin settings — currently just the Git proxy. Kept out of `cordis.patch.yml` on purpose: this plugin owns only the bytes between its MCP markers |
 | `<dshHome>/skill-mcp-tool/update.json` | Progress of the last self-update (phase, exit code, from/to version). Written by the child process, so the panel can read it even after a restart |
 | `<dshHome>/skill-mcp-tool/update.log` | Output of the last `pnpm add` run, shown in the panel on failure |
+| `<dshHome>/skill-mcp-tool/oauth.json` | MCP OAuth records, including refresh tokens, mode 600. Tokens never reach the browser; only the access token is written into `cordis.patch.yml` |
 
 ## HTTP routes
 
@@ -171,6 +184,7 @@ All routes are same-origin, POST-only for writes, with an origin check that reje
 | `skill/set-enabled`, `skill/remove`, `skill/read`, `skill/write` | Skill management |
 | `skill/install`, `skill/update`, `skill/check-updates`, `skill/forget-source` | Git sources |
 | `mcp/list`, `mcp/save`, `mcp/remove`, `mcp/set-enabled` | MCP management |
+| `mcp/oauth/status`, `mcp/oauth/authorize`, `mcp/oauth/refresh`, `mcp/oauth/forget` | OAuth for HTTP MCP servers: state / start authorization / rotate token / disconnect |
 | `proxy/get`, `proxy/save`, `proxy/test` | Git proxy: read / write / probe both paths |
 | `bundle/export`, `bundle/plan`, `bundle/import` | Settings export / review / import |
 | `update/check`, `update/status`, `update/apply` | Self-update: compare with upstream / poll progress / start it |

@@ -96,6 +96,18 @@
 - 密钥处理：API 令牌与请求头**从不回传给浏览器**，只返回键名。编辑时会保留你没有重新输入的键，并允许显式删除某个键。
 - 在环境变量或请求头里写 `${MY_TOKEN}`，会被落盘成真正的 `!!js` 表达式（`` `Bearer ${process.env.MY_TOKEN}` ``）—— DSH 没有 `${VAR}` 插值，这是唯一真正读取环境变量的机制。`!!js` 标签在每次编辑中都能逐字节原样往返。
 
+**需要 OAuth 的 MCP 服务器**
+
+Streamable HTTP 且走 OAuth 的服务器（Linear、Notion、Sentry 以及很多托管 MCP 端点）也能用，尽管 DSH 本身并不支持：
+
+- **为什么必须由插件代劳**：`@deepseek-ai/dsh-mcp-client` 构造传输时只做 `new StreamableHTTPClientTransport(url, { requestInit: { headers } })`，配置 schema 里只有 `url` 和 `headers`，**没有 `authProvider`**，也从不把 `UnauthorizedError` 暴露出来。所以没有地方能把 OAuth 提供者交给 DSH。插件自己跑完授权码流程，把拿到的 token 写进该行的 `Authorization` 头 —— DSH 就把它当普通静态 bearer 发出去。
+- **基于标准，不用去服务商后台申请密钥**：自动发现受保护资源元数据（RFC 9728）与授权服务器元数据（RFC 8414 / OIDC），以公共客户端身份自动注册（RFC 7591），用 **PKCE S256** 且不带 client secret。按 RFC 8707 带上 `resource`，让 token 只对该服务器有效。
+- **登录在浏览器里完成**：回调监听**只绑 `127.0.0.1`** 的随机端口，用常量时间比较校验 `state`，拿到授权码后立刻关闭（5 分钟超时）。
+- **token 不回传浏览器**：界面只看得到「已授权 / 已过期」、到期时间、以及有没有 refresh token。`refresh_token` 存在 `<dshHome>/skill-mcp-tool/oauth.json`（权限 600）；写进 `cordis.patch.yml` 的只有 access token。
+- **刷新是显式的**：点「刷新 token」换新 access token 并重写该行，DSH 随之重挂载。没有 refresh token 的服务器会提前说明 —— 过期后需要重新授权。
+- **断开授权会清理干净**：删掉本地记录，**并且**移除它写进该行的 `Authorization` 头，不会留下一个失效的 token。
+- 手写的静态 `Authorization` 头会被识别并如实标注 —— 那种行不需要走 OAuth 流程。
+
 **备份：导出 / 导入配置（换电脑用）**
 
 「备份」页把本插件管理过的 **Skills + MCP 服务器 + Git 来源记录**打包成一个 JSON 文件，在新电脑上导入即可恢复工作环境。
@@ -169,6 +181,7 @@ MCP 行写在专属受管块内：
 | `<dshHome>/skill-mcp-tool/sources.json` | Git 安装来源索引（仅为索引 —— 删除它不影响已安装技能） |
 | `<dshHome>/skill-mcp-tool/settings.json` | 插件设置 —— 目前只有 Git 代理。刻意不写进 `cordis.patch.yml`：本插件只拥有自己 MCP 标记之间的字节 |
 | `<dshHome>/skill-mcp-tool/update.json` | 上一次自更新的进度（阶段、退出码、更新前后版本）。由子进程写入，因此重启后界面仍能读到结果 |
+| `<dshHome>/skill-mcp-tool/oauth.json` | MCP 的 OAuth 记录，含 refresh token，权限 600。token 永不回传浏览器；写进 `cordis.patch.yml` 的只有 access token |
 | `<dshHome>/skill-mcp-tool/update.log` | 上一次 `pnpm add` 的输出，失败时在面板里展示 |
 
 ## HTTP 路由
@@ -181,6 +194,7 @@ MCP 行写在专属受管块内：
 | `skill/set-enabled`、`skill/remove`、`skill/read`、`skill/write` | 技能管理 |
 | `skill/install`、`skill/update`、`skill/check-updates`、`skill/forget-source` | Git 来源 |
 | `mcp/list`、`mcp/save`、`mcp/remove`、`mcp/set-enabled` | MCP 管理 |
+| `mcp/oauth/status`、`mcp/oauth/authorize`、`mcp/oauth/refresh`、`mcp/oauth/forget` | HTTP MCP 的 OAuth：状态 / 发起授权 / 刷新 token / 断开授权 |
 | `proxy/get`、`proxy/save`、`proxy/test` | Git 代理：读取 / 保存 / 双路径探针 |
 | `bundle/export`、`bundle/plan`、`bundle/import` | 配置导出 / 预检 / 导入 |
 | `update/check`、`update/status`、`update/apply` | 自更新：对比上游 / 轮询进度 / 开始更新 |

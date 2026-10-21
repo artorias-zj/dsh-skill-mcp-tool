@@ -192,7 +192,27 @@ window.__ModuleLoader__.load({
 			updateFailed: "更新失败",
 			updateUnknown: "更新进程已退出，结果未知",
 			updateRestartHint: "重启 DSH 后新版本才会加载",
-			updateDev: "本地目录安装（开发模式），不检查更新"
+			updateDev: "本地目录安装（开发模式），不检查更新",
+			oauth: "OAuth",
+			oauthAuthorized: "已授权",
+			oauthExpired: "授权已过期",
+			oauthNotAuthorized: "未授权",
+			oauthStatic: "已配置静态 Authorization 头",
+			oauthAuthorize: "OAuth 授权",
+			oauthReauthorize: "重新授权",
+			oauthRefresh: "刷新 token",
+			oauthForget: "断开授权",
+			oauthTitle: "OAuth 授权",
+			oauthHint: "该服务器要求 OAuth。点「开始授权」会打开浏览器；登录完成后自动把 token 写入这一行的 Authorization 头。",
+			oauthScope: "Scope（可选，留空用服务器建议值）",
+			oauthClientId: "Client ID（可选，留空自动注册）",
+			oauthStart: "开始授权",
+			oauthWorking: "等待浏览器完成授权…",
+			oauthDone: "授权完成，token 已写入该行",
+			oauthRefreshed: "token 已刷新",
+			oauthForgotten: "已断开授权，并移除该行的 Authorization 头",
+			oauthExpiresAt: "到期时间",
+			oauthNoRefresh: "该授权没有 refresh token，过期后需重新授权"
 		};
 		const en = {
 			nav: "Skills & MCP",
@@ -354,7 +374,27 @@ window.__ModuleLoader__.load({
 			updateFailed: "Update failed",
 			updateUnknown: "The update process exited; the outcome is unknown",
 			updateRestartHint: "The new version loads after DSH restarts",
-			updateDev: "Installed from a local directory (dev mode) — updates are not checked"
+			updateDev: "Installed from a local directory (dev mode) — updates are not checked",
+			oauth: "OAuth",
+			oauthAuthorized: "Authorized",
+			oauthExpired: "Authorization expired",
+			oauthNotAuthorized: "Not authorized",
+			oauthStatic: "A static Authorization header is configured",
+			oauthAuthorize: "OAuth authorize",
+			oauthReauthorize: "Re-authorize",
+			oauthRefresh: "Refresh token",
+			oauthForget: "Disconnect",
+			oauthTitle: "OAuth authorization",
+			oauthHint: "This server requires OAuth. Starting authorization opens your browser; once you sign in, the token is written into this row's Authorization header.",
+			oauthScope: "Scope (optional — leave empty to use the server's suggestion)",
+			oauthClientId: "Client ID (optional — leave empty to register automatically)",
+			oauthStart: "Start authorization",
+			oauthWorking: "Waiting for the browser to finish…",
+			oauthDone: "Authorized — the token was written to this row",
+			oauthRefreshed: "Token refreshed",
+			oauthForgotten: "Disconnected, and the row's Authorization header was removed",
+			oauthExpiresAt: "Expires",
+			oauthNoRefresh: "This authorization has no refresh token, so it needs re-authorization when it expires"
 		};
 
 		// ── 样式（类名前缀 smt-，只引用 --dsw-alias-* 主题变量）────────────────
@@ -1222,6 +1262,71 @@ window.__ModuleLoader__.load({
 			);
 		}
 
+		/**
+		 * MCP OAuth 授权对话框。
+		 *
+		 * 为什么需要它：DSH 的 mcp-client 只把 headers 当静态头发送，不认 OAuth。
+		 * 所以本插件替它跑完授权码流程，再把 access token 写进该行的
+		 * `Authorization` 头 —— 服务器看到的就和一个手配的 bearer 一样。
+		 *
+		 * 授权期间按钮保持忙碌：宿主在等浏览器回调（最长 5 分钟），
+		 * 提前放行会让用户以为失败而重复点。
+		 */
+		function OAuthDialog({ t, server, onClose, reload, notify }) {
+			const [scope, setScope] = React.useState("");
+			const [clientId, setClientId] = React.useState("");
+			const [busy, setBusy] = React.useState(false);
+			const [error, setError] = React.useState(null);
+			const oauth = server?.oauth ?? { authorized: false };
+
+			const start = () =>
+				runForm(
+					setBusy,
+					setError,
+					() => apiPost("mcp/oauth/authorize", { serverName: server.serverName, scope: scope.trim(), clientId: clientId.trim() }),
+					async () => {
+						notify("success", t("oauthDone"));
+						await reload();
+						onClose();
+					}
+				);
+
+			return h(
+				Modal,
+				{
+					title: `${t("oauthTitle")} · ${server.serverName}`,
+					onClose,
+					footer: [
+						h("button", { key: "cancel", type: "button", className: "smt-btn", onClick: onClose, disabled: busy }, t("cancel")),
+						h("button", { key: "go", type: "button", className: "smt-btn", "data-variant": "primary", onClick: start, disabled: busy }, busy ? [h("span", { key: "s", className: "smt-spin" }), ` ${t("oauthWorking")}`] : t("oauthStart"))
+					]
+				},
+				error ? h(Notice, { kind: "error" }, error) : null,
+				h(Notice, { kind: "info" }, t("oauthHint")),
+				oauth.authorized
+					? h(
+							"div",
+							{ className: "smt-meta" },
+							`${oauth.expired ? t("oauthExpired") : t("oauthAuthorized")}${oauth.expiresAt ? ` · ${t("oauthExpiresAt")} ${oauth.expiresAt}` : ""}`
+						)
+					: null,
+				h(
+					"div",
+					{ className: "smt-grid" },
+					h(
+						Field,
+						{ label: t("oauthScope") },
+						h("input", { type: "text", className: "smt-input", value: scope, placeholder: "mcp.read mcp.write", onChange: (event) => setScope(event.target.value) })
+					),
+					h(
+						Field,
+						{ label: t("oauthClientId") },
+						h("input", { type: "text", className: "smt-input", value: clientId, onChange: (event) => setClientId(event.target.value) })
+					)
+				)
+			);
+		}
+
 		/** 从 Git 安装技能的对话框。 */
 		function Installer({ t, roots, proxy, onClose, reload, notify }) {
 			const cwd = useCwd();
@@ -1310,6 +1415,7 @@ window.__ModuleLoader__.load({
 		function McpSection({ t, state, reload, notify }) {
 			const [busy, setBusy] = React.useState(null);
 			const [editor, setEditor] = React.useState(null);
+			const [oauthTarget, setOauthTarget] = React.useState(null);
 			const patch = state?.mcp?.patch ?? {};
 			// 首字母排序；宿主已排过，这里再排一次以防旧版宿主。
 			const servers = React.useMemo(
@@ -1367,7 +1473,30 @@ window.__ModuleLoader__.load({
 								: server.url ?? ""
 						),
 						server.envKeys?.length ? h("div", { className: "smt-meta" }, `env: ${server.envKeys.join(", ")}`) : null,
-						server.headerKeys?.length ? h("div", { className: "smt-meta" }, `headers: ${server.headerKeys.join(", ")}`) : null
+						server.headerKeys?.length ? h("div", { className: "smt-meta" }, `headers: ${server.headerKeys.join(", ")}`) : null,
+						// OAuth 状态：http 传输才显示（stdio 的凭据走环境变量）。
+						// 未授权时也显示一行，否则用户不知道「这行还能用 OAuth」。
+						managed && server.transport === "streamable-http"
+							? h(
+									"div",
+									{ className: "smt-meta" },
+									`${t("oauth")}: `,
+									h(
+										"span",
+										{ className: "smt-badge", "data-tone": server.oauth?.authorized ? (server.oauth.expired ? "warn" : "on") : "off" },
+										server.oauth?.authorized
+											? server.oauth.expired
+												? t("oauthExpired")
+												: t("oauthAuthorized")
+											: server.oauth?.staticAuthorization
+												? t("oauthStatic")
+												: t("oauthNotAuthorized")
+									),
+									server.oauth?.expiresAt ? ` · ${t("oauthExpiresAt")} ${server.oauth.expiresAt}` : "",
+									// 有授权但没有 refresh token：过期只能重新授权，提前说清楚。
+									server.oauth?.authorized && server.oauth?.hasRefreshToken === false ? ` · ${t("oauthNoRefresh")}` : ""
+								)
+							: null
 					),
 					h(
 						"div",
@@ -1382,6 +1511,51 @@ window.__ModuleLoader__.load({
 							: h("span", { className: "smt-badge", "data-tone": "off" }, t("readOnly")),
 						managed
 							? h("button", { type: "button", className: "smt-btn", "data-size": "sm", disabled: busy === server.serverName, onClick: () => setEditor({ initial: server }) }, t("edit"))
+							: null,
+						// OAuth 入口只给 http 传输：stdio 服务器的凭据走环境变量，没有 OAuth 可言。
+						managed && server.transport === "streamable-http"
+							? h(
+									"button",
+									{ type: "button", className: "smt-btn", "data-size": "sm", disabled: busy === server.serverName, onClick: () => setOauthTarget(server) },
+									server.oauth?.authorized === true ? t("oauthReauthorize") : t("oauthAuthorize")
+								)
+							: null,
+						managed && server.oauth?.authorized === true && server.oauth?.hasRefreshToken === true
+							? h(
+									"button",
+									{
+										type: "button",
+										className: "smt-btn",
+										"data-size": "sm",
+										disabled: busy === server.serverName,
+										onClick: () =>
+											runBusy(setBusy, server.serverName, () => apiPost("mcp/oauth/refresh", { serverName: server.serverName }), {
+												notify,
+												reload,
+												success: t("oauthRefreshed")
+											})
+									},
+									t("oauthRefresh")
+								)
+							: null,
+						managed && server.oauth?.authorized === true
+							? h(
+									"button",
+									{
+										type: "button",
+										className: "smt-btn",
+										"data-size": "sm",
+										"data-variant": "danger",
+										disabled: busy === server.serverName,
+										onClick: () =>
+											runBusy(setBusy, server.serverName, () => apiPost("mcp/oauth/forget", { serverName: server.serverName }), {
+												notify,
+												reload,
+												success: t("oauthForgotten")
+											})
+									},
+									t("oauthForget")
+								)
 							: null,
 						managed
 							? h("button", { type: "button", className: "smt-btn", "data-size": "sm", "data-variant": "danger", disabled: busy === server.serverName, onClick: () => remove(server) }, t("remove"))
@@ -1439,6 +1613,9 @@ window.__ModuleLoader__.load({
 							},
 							notify
 						})
+					: null,
+				oauthTarget !== null
+					? h(OAuthDialog, { t, server: oauthTarget, onClose: () => setOauthTarget(null), reload, notify })
 					: null
 			);
 		}
