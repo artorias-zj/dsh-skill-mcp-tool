@@ -436,11 +436,14 @@ window.__ModuleLoader__.load({
 .smt-proxyField>.smt-input{flex:1;min-width:0}
 .smt-proxyUrl{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
 .smt-proxyActions{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap}
-/* 自身更新条：一行放「当前版本 + 检查/更新按钮 + 状态」。
- * 放在页签之下，因为它是关于整个插件的，不属于任何一个页签的内容。 */
-.smt-update{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
-.smt-updateVer{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--dsw-alias-label-tertiary)}
-.smt-updateMsg{flex:1;min-width:0}
+/* 自身更新卡片：与 Git 代理条**同一套外观**（同边框、同圆角、同底色、同内边距），
+ * 两条并排时看起来是同一层级的两张卡，而不是「一条卡片 + 一行散字」。
+ * 放在页签上方，因为它是关于整个插件的，不属于任何一个页签的内容。 */
+.smt-update{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-layer-1);padding:8px 12px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
+.smt-updateLabel{color:var(--dsw-alias-label-tertiary);flex:none}
+.smt-updateVer{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--dsw-alias-label-primary);flex:none}
+.smt-updateActions{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap}
+.smt-updateMsg{flex:1;min-width:120px}
 .smt-updateMsg[data-tone=ok]{color:var(--dsw-alias-state-success-primary)}
 .smt-updateMsg[data-tone=warn]{color:var(--dsw-alias-state-warn-primary)}
 .smt-updateMsg[data-tone=error]{color:var(--dsw-alias-state-error-primary)}
@@ -944,18 +947,13 @@ window.__ModuleLoader__.load({
 			return h(
 				"div",
 				{ className: "smt-update" },
-				h("span", { className: "smt-updateVer", title: plugin?.repository ?? "", "aria-label": `${t("version")} ${version}` }, `v${version}`),
-				canApply
-					? h(
-							"button",
-							{ type: "button", className: "smt-btn", "data-size": "sm", "data-variant": "primary", disabled: applying || running, onClick: () => void apply() },
-							applying ? h("span", { className: "smt-spin" }) : fill(t("applyUpdate"), { version: latest ?? "" })
-						)
-					: h(
-							"button",
-							{ type: "button", className: "smt-btn", "data-size": "sm", disabled: checking || running || applying, onClick: () => void check() },
-							checking ? [h("span", { key: "s", className: "smt-spin" }), ` ${t("updateChecking")}`] : t("updateCheck")
-						),
+				// 与代理条同构：左侧标签 + 值，中间弹性区，右侧按钮。
+				h(
+					"div",
+					{ className: "smt-inline" },
+					h("span", { className: "smt-updateLabel" }, t("version")),
+					h("span", { className: "smt-updateVer", title: plugin?.repository ?? "", "aria-label": `${t("version")} ${version}` }, `v${version}`)
+				),
 				message === null
 					? result?.hasUpdate === true
 						? h("span", { className: "smt-updateMsg", "data-tone": "warn" }, fill(t("updateFound"), { version: latest ?? "" }))
@@ -964,7 +962,22 @@ window.__ModuleLoader__.load({
 							"span",
 							{ className: "smt-updateMsg", "data-tone": tone, title: log },
 							running ? [h("span", { key: "s", className: "smt-spin" }), ` ${message}`] : message
-						)
+						),
+				h(
+					"div",
+					{ className: "smt-updateActions" },
+					canApply
+						? h(
+								"button",
+								{ type: "button", className: "smt-btn", "data-size": "sm", "data-variant": "primary", disabled: applying || running, onClick: () => void apply() },
+								applying ? h("span", { className: "smt-spin" }) : fill(t("applyUpdate"), { version: latest ?? "" })
+							)
+						: h(
+								"button",
+								{ type: "button", className: "smt-btn", "data-size": "sm", disabled: checking || running || applying, onClick: () => void check() },
+								checking ? [h("span", { key: "s", className: "smt-spin" }), ` ${t("updateChecking")}`] : t("updateCheck")
+							)
+				)
 			);
 		}
 

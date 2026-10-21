@@ -20,7 +20,7 @@ Both render the identical component, so the four tabs (Skills / MCP / Remote sou
 
 **The plugin updates itself from the panel**
 
-A version row sits above the tab strip (below the proxy bar): it shows the running version, checks the upstream repository on demand, and offers a one-click update when a newer tag — or newer commits on the default branch — exist.
+A **version card** sits above the tab strip, styled exactly like the proxy card next to it: it shows the running version, checks the upstream repository on demand, and offers a one-click update when a newer tag — or newer commits on the default branch — exist.
 
 - **Check** compares the installed version and the commit recorded in `pnpm-lock.yaml` against `git ls-remote` of the repository declared in `package.json`, using the same proxy as skill installs. It reports a version bump, a newer commit without a tag, "up to date", or "local-dir install, not checked".
 - **Update** runs `pnpm add <the spec your profile already records>` in a **detached child process** — it does not uninstall the plugin. If it fails, the running version keeps working; on success you restart DSH to load the new code.
