@@ -18,6 +18,16 @@ A DeepSeek Harness (DSH) plugin that puts **Skills and MCP servers under one roo
 
 Both render the identical component, so the four tabs (Skills / MCP / Remote sources / Backup) behave the same wherever you open them.
 
+**The plugin updates itself from the panel**
+
+A version row sits under the tab strip: it shows the running version, checks the upstream repository on demand, and offers a one-click update when a newer tag — or newer commits on the default branch — exist.
+
+- **Check** compares the installed version and the commit recorded in `pnpm-lock.yaml` against `git ls-remote` of the repository declared in `package.json`, using the same proxy as skill installs. It reports a version bump, a newer commit without a tag, "up to date", or "local-dir install, not checked".
+- **Update** runs `pnpm add <the spec your profile already records>` in a **detached child process** — it does not uninstall the plugin. If it fails, the running version keeps working; on success you restart DSH to load the new code.
+- It never occupies the request: the panel polls a status file, so a 30-second install does not hang the page, and the outcome survives a closed panel.
+
+> **Why not hot-swap?** The host half is ESM cached by URL and the client bundle is cached by the browser, so an in-place replacement cannot take effect without a restart anyway. The panel says so instead of claiming success.
+
 **Layout: the two entry points are handled separately**
 
 The host's layout contract differs between the centre panel and the settings page, so the shell has two modes selected by `data-surface`:
@@ -148,6 +158,8 @@ Optional `config` on the row in `cordis.patch.yml`:
 | `<dshHome>/skills/**` | Skills it installs, creates, edits, or toggles |
 | `<dshHome>/skill-mcp-tool/sources.json` | Index of Git install sources (an index only — deleting it never affects installed skills) |
 | `<dshHome>/skill-mcp-tool/settings.json` | Plugin settings — currently just the Git proxy. Kept out of `cordis.patch.yml` on purpose: this plugin owns only the bytes between its MCP markers |
+| `<dshHome>/skill-mcp-tool/update.json` | Progress of the last self-update (phase, exit code, from/to version). Written by the child process, so the panel can read it even after a restart |
+| `<dshHome>/skill-mcp-tool/update.log` | Output of the last `pnpm add` run, shown in the panel on failure |
 
 ## HTTP routes
 
@@ -161,6 +173,7 @@ All routes are same-origin, POST-only for writes, with an origin check that reje
 | `mcp/list`, `mcp/save`, `mcp/remove`, `mcp/set-enabled` | MCP management |
 | `proxy/get`, `proxy/save`, `proxy/test` | Git proxy: read / write / probe both paths |
 | `bundle/export`, `bundle/plan`, `bundle/import` | Settings export / review / import |
+| `update/check`, `update/status`, `update/apply` | Self-update: compare with upstream / poll progress / start it |
 
 ## Plugin Info
 

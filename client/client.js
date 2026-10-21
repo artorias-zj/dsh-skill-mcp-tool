@@ -180,7 +180,19 @@ window.__ModuleLoader__.load({
 			proxyOff: "未启用代理，将沿用全局 git 配置（直连）",
 			importProxyApplied: "配置包中的代理设置已应用：",
 			planProxy: "代理设置将被更改",
-			proxyNeedsPassword: "配置包中的代理口令未导出，导入后需在代理栏重新填写"
+			proxyNeedsPassword: "配置包中的代理口令未导出，导入后需在代理栏重新填写",
+			version: "插件版本",
+			updateCheck: "检查更新",
+			updateChecking: "正在检查…",
+			updateUpToDate: "已是最新版本",
+			updateFound: "有新版本 {version}",
+			applyUpdate: "更新到 {version}",
+			updateRunning: "正在后台更新，请勿关闭 DSH…",
+			updateDone: "更新完成，重启 DSH 生效",
+			updateFailed: "更新失败",
+			updateUnknown: "更新进程已退出，结果未知",
+			updateRestartHint: "重启 DSH 后新版本才会加载",
+			updateDev: "本地目录安装（开发模式），不检查更新"
 		};
 		const en = {
 			nav: "Skills & MCP",
@@ -330,7 +342,19 @@ window.__ModuleLoader__.load({
 			proxyOff: "Proxy is off — your global git config (direct) will be used",
 			importProxyApplied: "Proxy settings from the bundle applied:",
 			planProxy: "Proxy settings will change",
-			proxyNeedsPassword: "The bundle's proxy password was not exported — re-enter it in the proxy bar after importing"
+			proxyNeedsPassword: "The bundle's proxy password was not exported — re-enter it in the proxy bar after importing",
+			version: "Plugin version",
+			updateCheck: "Check for updates",
+			updateChecking: "Checking…",
+			updateUpToDate: "Up to date",
+			updateFound: "Version {version} is available",
+			applyUpdate: "Update to {version}",
+			updateRunning: "Updating in the background — keep DSH open…",
+			updateDone: "Updated — restart DSH to apply",
+			updateFailed: "Update failed",
+			updateUnknown: "The update process exited; the outcome is unknown",
+			updateRestartHint: "The new version loads after DSH restarts",
+			updateDev: "Installed from a local directory (dev mode) — updates are not checked"
 		};
 
 		// ── 样式（类名前缀 smt-，只引用 --dsw-alias-* 主题变量）────────────────
@@ -412,6 +436,14 @@ window.__ModuleLoader__.load({
 .smt-proxyField>.smt-input{flex:1;min-width:0}
 .smt-proxyUrl{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
 .smt-proxyActions{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap}
+/* 自身更新条：一行放「当前版本 + 检查/更新按钮 + 状态」。
+ * 放在页签之下，因为它是关于整个插件的，不属于任何一个页签的内容。 */
+.smt-update{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
+.smt-updateVer{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--dsw-alias-label-tertiary)}
+.smt-updateMsg{flex:1;min-width:0}
+.smt-updateMsg[data-tone=ok]{color:var(--dsw-alias-state-success-primary)}
+.smt-updateMsg[data-tone=warn]{color:var(--dsw-alias-state-warn-primary)}
+.smt-updateMsg[data-tone=error]{color:var(--dsw-alias-state-error-primary)}
 /* 结果徽章：把「走代理通不通」和「直连通不通」并排给出来，
  * 一眼就能分清是网络路径的问题还是仓库本身的问题。 */
 .smt-probe{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;line-height:16px;color:var(--dsw-alias-label-secondary)}
@@ -534,6 +566,16 @@ window.__ModuleLoader__.load({
 		/** 异常 → 可展示文案（宿主抛的 Error 带中文原因，直接用它）。 */
 		function errText(error) {
 			return error instanceof Error ? error.message : String(error);
+		}
+
+		/**
+		 * 字典里的 `{name}` 占位替换。
+		 *
+		 * 不用模板字符串拼接：中英文语序不同（"更新到 {version}" / "Update to {version}"），
+		 * 占位符让两种语言各自决定把值放在哪，调用方不必知道语序。
+		 */
+		function fill(template, values) {
+			return String(template ?? "").replace(/\{(\w+)\}/g, (whole, key) => (key in values ? String(values[key]) : whole));
 		}
 
 		/**
@@ -804,6 +846,125 @@ window.__ModuleLoader__.load({
 					{ className: "smt-hint" },
 					incoming?.hasCredentials === true ? t("proxyHasCredentials") : url.trim() === "" && !enabled ? t("proxyEmpty") : t("proxyHint")
 				)
+			);
+		}
+
+		/**
+		 * 自身更新条 —— 「当前版本 + 检查更新 / 一键更新 + 结果」。
+		 *
+		 * 为什么必须提示重启：宿主半区是 ESM 按 URL 缓存的，客户端束也被浏览器
+		 * 按 URL 缓存。更新只换磁盘上的文件，进程里跑的还是旧代码，所以这里
+		 * 不会假装已经生效。
+		 *
+		 * 更新在宿主的**子进程**里跑（不卸载自身），因此界面只需要轮询状态：
+		 * 运行中转圈，结束按 exitCode 给结论，失败时把日志尾部挂到 title 上。
+		 */
+		function UpdateBar({ t, plugin, notify }) {
+			const [checking, setChecking] = React.useState(false);
+			const [applying, setApplying] = React.useState(false);
+			const [result, setResult] = React.useState(null);
+			const [state, setState] = React.useState(null);
+			const [log, setLog] = React.useState("");
+
+			const readStatus = React.useCallback(async () => {
+				try {
+					const status = await apiPost("update/status", {});
+					setState(status?.state ?? null);
+					setLog(typeof status?.log === "string" ? status.log : "");
+				} catch {
+					// 状态读不到不打断界面：下一次轮询或用户手动检查会补上。
+				}
+			}, []);
+
+			// 挂载时先读一次：上次的更新可能还在跑，或已装完等待重启。
+			React.useEffect(() => {
+				void readStatus();
+			}, [readStatus]);
+
+			const running = state?.phase === "running";
+			// 运行中每 1.5 秒看一次；结束即停，不做无用的空转。
+			React.useEffect(() => {
+				if (!running) return undefined;
+				const timer = setInterval(() => void readStatus(), 1500);
+				return () => clearInterval(timer);
+			}, [running, readStatus]);
+
+			const version = plugin?.version ?? "";
+			const latest = result?.remote?.version ?? null;
+
+			const check = async () => {
+				await runBusy(setChecking, "check", () => apiPost("update/check", {}), {
+					notify,
+					success: (checked) => {
+						setResult(checked);
+						if (checked?.kind === "dev") return { kind: "info", message: t("updateDev") };
+						if (checked?.hasUpdate !== true) return t("updateUpToDate");
+						return {
+							kind: "info",
+							message: fill(t("updateFound"), { version: checked?.remote?.version ?? checked?.remote?.commit?.slice(0, 7) ?? "" })
+						};
+					}
+				});
+			};
+
+			const apply = async () => {
+				await runBusy(setApplying, "apply", () => apiPost("update/apply", {}), {
+					notify,
+					success: t("updateRunning"),
+					// 立刻读一次，让「运行中」马上出现在界面上。
+					reload: readStatus
+				});
+			};
+
+			// 状态文案与语气。
+			let message = null;
+			let tone = "info";
+			if (running) {
+				message = t("updateRunning");
+			} else if (state?.phase === "done") {
+				// 装上的版本正好就是正在运行的版本时不用重启 —— 也就不要再提示
+				// 「重启生效」，否则用户会为一个什么都没变的更新白重启一次。
+				if (state.restartRequired === false) {
+					message = null;
+				} else {
+					message = `${t("updateDone")} · ${t("updateRestartHint")}`;
+					tone = "ok";
+				}
+			} else if (state?.phase === "failed") {
+				message = t("updateFailed");
+				tone = "error";
+			} else if (state?.phase === "unknown") {
+				message = t("updateUnknown");
+				tone = "warn";
+			}
+
+			// 是否显示「更新到 x.y.z」按钮：只有确认有新版本、且当前没有在跑/没装完。
+			const canApply = result?.hasUpdate === true && !running && state?.phase !== "done";
+
+			return h(
+				"div",
+				{ className: "smt-update" },
+				h("span", { className: "smt-updateVer", title: plugin?.repository ?? "", "aria-label": `${t("version")} ${version}` }, `v${version}`),
+				canApply
+					? h(
+							"button",
+							{ type: "button", className: "smt-btn", "data-size": "sm", "data-variant": "primary", disabled: applying || running, onClick: () => void apply() },
+							applying ? h("span", { className: "smt-spin" }) : fill(t("applyUpdate"), { version: latest ?? "" })
+						)
+					: h(
+							"button",
+							{ type: "button", className: "smt-btn", "data-size": "sm", disabled: checking || running || applying, onClick: () => void check() },
+							checking ? [h("span", { key: "s", className: "smt-spin" }), ` ${t("updateChecking")}`] : t("updateCheck")
+						),
+				message === null
+					? result?.hasUpdate === true
+						? h("span", { className: "smt-updateMsg", "data-tone": "warn" }, fill(t("updateFound"), { version: latest ?? "" }))
+						: null
+					: h(
+							"span",
+							{ className: "smt-updateMsg", "data-tone": tone, title: log },
+							running ? [h("span", { key: "s", className: "smt-spin" }), ` ${message}`] : message
+						)
 			);
 		}
 
@@ -1883,6 +2044,9 @@ window.__ModuleLoader__.load({
 						tabButton("sources", `${t("tabSources")} (${state?.sources?.length ?? 0})`),
 						tabButton("backup", t("tabBackup"))
 					),
+					// 自身更新条：位于页签之下、滚动区之上，所以常驻可见；
+					// 内容多到要滚动时它也不会被滚走，随时能检查或更新。
+					h(UpdateBar, { t, plugin: state?.plugin, notify }),
 					// 滚动区：主面板里由它承担滚动；设置页里自然展开交给宿主。
 					h(
 						"div",

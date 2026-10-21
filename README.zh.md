@@ -18,6 +18,16 @@
 
 两处渲染的是同一个组件，四个页签（技能 / MCP / 远程来源 / 备份）行为完全一致。
 
+**面板里能检查并一键更新插件自身**
+
+页签下方有一条版本行：显示当前运行的版本，按需检查上游仓库，有新版本时给出一键更新。
+
+- **检查**：把已装版本、以及 `pnpm-lock.yaml` 里记录的提交，与 `package.json` 声明的上游仓库的 `git ls-remote` 结果对比，走与技能安装相同的代理。结果分四种：有新版本、版本相同但默认分支有新提交、已是最新、本地目录安装（不检查）。
+- **更新**：在**独立子进程**里执行 `pnpm add <你 profile 里已记录的那个 spec>`，**不卸载**插件。失败了旧版本照常运行；成功了重启 DSH 才会加载新代码。
+- **不占住请求**：面板轮询状态文件，所以一次几十秒的安装不会把页面卡住，关掉面板也不影响结果。
+
+> **为什么不做热替换？** 宿主半区是 ESM 按 URL 缓存的，客户端束也被浏览器按 URL 缓存 —— 原地替换本来就要重启才能生效。界面如实说明这一点，而不是假装已经更新成功。
+
 **版面：两个入口分开处理**
 
 主面板与设置页的宿主排版契约不同，所以外壳按 `data-surface` 分两套：
@@ -158,6 +168,8 @@ MCP 行写在专属受管块内：
 | `<dshHome>/skills/**` | 安装、新建、编辑或切换的技能 |
 | `<dshHome>/skill-mcp-tool/sources.json` | Git 安装来源索引（仅为索引 —— 删除它不影响已安装技能） |
 | `<dshHome>/skill-mcp-tool/settings.json` | 插件设置 —— 目前只有 Git 代理。刻意不写进 `cordis.patch.yml`：本插件只拥有自己 MCP 标记之间的字节 |
+| `<dshHome>/skill-mcp-tool/update.json` | 上一次自更新的进度（阶段、退出码、更新前后版本）。由子进程写入，因此重启后界面仍能读到结果 |
+| `<dshHome>/skill-mcp-tool/update.log` | 上一次 `pnpm add` 的输出，失败时在面板里展示 |
 
 ## HTTP 路由
 
@@ -171,6 +183,7 @@ MCP 行写在专属受管块内：
 | `mcp/list`、`mcp/save`、`mcp/remove`、`mcp/set-enabled` | MCP 管理 |
 | `proxy/get`、`proxy/save`、`proxy/test` | Git 代理：读取 / 保存 / 双路径探针 |
 | `bundle/export`、`bundle/plan`、`bundle/import` | 配置导出 / 预检 / 导入 |
+| `update/check`、`update/status`、`update/apply` | 自更新：对比上游 / 轮询进度 / 开始更新 |
 
 ## 插件信息
 
