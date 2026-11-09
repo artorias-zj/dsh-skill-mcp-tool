@@ -960,6 +960,12 @@ window.__ModuleLoader__.load({
 			};
 
 			// 状态文案与语气。
+			//
+			// 宿主已经会在启动时、以及每次轮询 `update/status` 时收尾掉已生效的
+			// 「更新完成，重启生效」。这里再判一次是给两种中间态兜底：状态文件被
+			// 别的版本写过、或面板读到的是宿主收尾之前的那一轮 —— 两种情况下
+			// 「装上的版本 = 正在跑的版本」都足以说明提示已经过期。
+			const settled = state?.phase === "done" && (state.restartRequired === false || (state.to != null && state.to === version));
 			let message = null;
 			let tone = "info";
 			if (running) {
@@ -967,9 +973,7 @@ window.__ModuleLoader__.load({
 			} else if (state?.phase === "done") {
 				// 装上的版本正好就是正在运行的版本时不用重启 —— 也就不要再提示
 				// 「重启生效」，否则用户会为一个什么都没变的更新白重启一次。
-				if (state.restartRequired === false) {
-					message = null;
-				} else {
+				if (!settled) {
 					message = `${t("updateDone")} · ${t("updateRestartHint")}`;
 					tone = "ok";
 				}
@@ -982,7 +986,7 @@ window.__ModuleLoader__.load({
 			}
 
 			// 是否显示「更新到 x.y.z」按钮：只有确认有新版本、且当前没有在跑/没装完。
-			const canApply = result?.hasUpdate === true && !running && state?.phase !== "done";
+			const canApply = result?.hasUpdate === true && !running && (state?.phase !== "done" || settled);
 
 			return h(
 				"div",

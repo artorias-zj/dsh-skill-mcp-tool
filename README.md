@@ -25,6 +25,7 @@ A **version card** sits above the tab strip, styled exactly like the proxy card 
 - **Check** compares the installed version and the commit recorded in `pnpm-lock.yaml` against `git ls-remote` of the repository declared in `package.json`, using the same proxy as skill installs. It reports a version bump, a newer commit without a tag, "up to date", or "local-dir install, not checked".
 - **Update** runs `pnpm add <the spec your profile already records>` in a **detached child process** — it does not uninstall the plugin. If it fails, the running version keeps working; on success you restart DSH to load the new code.
 - It never occupies the request: the panel polls a status file, so a 30-second install does not hang the page, and the outcome survives a closed panel.
+- **The "restart to apply" notice clears itself.** Because the outcome lives on disk it also outlives the restart it asked for, so on startup — and on every status poll — the plugin settles it: if the update finished before this process started, or the installed version is the one now running, the notice is retired (recorded with `settledBy` so the history stays auditable). A failure, a still-running install, or an update you genuinely have not restarted for keeps its notice.
 
 > **Why not hot-swap?** The host half is ESM cached by URL and the client bundle is cached by the browser, so an in-place replacement cannot take effect without a restart anyway. The panel says so instead of claiming success.
 
@@ -170,7 +171,7 @@ Optional `config` on the row in `cordis.patch.yml`:
 | `<dshHome>/skills/**` | Skills it installs, creates, edits, or toggles |
 | `<dshHome>/skill-mcp-tool/sources.json` | Index of Git install sources (an index only — deleting it never affects installed skills) |
 | `<dshHome>/skill-mcp-tool/settings.json` | Plugin settings — currently just the Git proxy. Kept out of `cordis.patch.yml` on purpose: this plugin owns only the bytes between its MCP markers |
-| `<dshHome>/skill-mcp-tool/update.json` | Progress of the last self-update (phase, exit code, from/to version). Written by the child process, so the panel can read it even after a restart |
+| `<dshHome>/skill-mcp-tool/update.json` | Progress of the last self-update (phase, exit code, from/to version, `settledBy`). Written by the child process so the panel can read it even after a restart; retired automatically once the update is proven applied |
 | `<dshHome>/skill-mcp-tool/update.log` | Output of the last `pnpm add` run, shown in the panel on failure |
 | `<dshHome>/skill-mcp-tool/oauth.json` | MCP OAuth records, including refresh tokens, mode 600. Tokens never reach the browser; only the access token is written into `cordis.patch.yml` |
 

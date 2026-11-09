@@ -25,6 +25,7 @@
 - **检查**：把已装版本、以及 `pnpm-lock.yaml` 里记录的提交，与 `package.json` 声明的上游仓库的 `git ls-remote` 结果对比，走与技能安装相同的代理。结果分四种：有新版本、版本相同但默认分支有新提交、已是最新、本地目录安装（不检查）。
 - **更新**：在**独立子进程**里执行 `pnpm add <你 profile 里已记录的那个 spec>`，**不卸载**插件。失败了旧版本照常运行；成功了重启 DSH 才会加载新代码。
 - **不占住请求**：面板轮询状态文件，所以一次几十秒的安装不会把页面卡住，关掉面板也不影响结果。
+- **「重启生效」提示会自己退场**：结果写在磁盘上，所以它能活过它所请求的那次重启。插件因此在启动时、以及每次轮询状态时顺手收尾：只要这次更新是在本进程启动**之前**结束的、或装上的版本就是正在跑的版本，提示即告过期并清掉（记录 `settledBy` 说明依据，历史仍可追溯）。失败、仍在安装、以及你确实还没重启的那次更新，提示照常保留。
 
 > **为什么不做热替换？** 宿主半区是 ESM 按 URL 缓存的，客户端束也被浏览器按 URL 缓存 —— 原地替换本来就要重启才能生效。界面如实说明这一点，而不是假装已经更新成功。
 
@@ -180,7 +181,7 @@ MCP 行写在专属受管块内：
 | `<dshHome>/skills/**` | 安装、新建、编辑或切换的技能 |
 | `<dshHome>/skill-mcp-tool/sources.json` | Git 安装来源索引（仅为索引 —— 删除它不影响已安装技能） |
 | `<dshHome>/skill-mcp-tool/settings.json` | 插件设置 —— 目前只有 Git 代理。刻意不写进 `cordis.patch.yml`：本插件只拥有自己 MCP 标记之间的字节 |
-| `<dshHome>/skill-mcp-tool/update.json` | 上一次自更新的进度（阶段、退出码、更新前后版本）。由子进程写入，因此重启后界面仍能读到结果 |
+| `<dshHome>/skill-mcp-tool/update.json` | 上一次自更新的进度（阶段、退出码、更新前后版本、`settledBy`）。由子进程写入，因此重启后界面仍能读到结果；一旦确认已生效就自动退场 |
 | `<dshHome>/skill-mcp-tool/oauth.json` | MCP 的 OAuth 记录，含 refresh token，权限 600。token 永不回传浏览器；写进 `cordis.patch.yml` 的只有 access token |
 | `<dshHome>/skill-mcp-tool/update.log` | 上一次 `pnpm add` 的输出，失败时在面板里展示 |
 
