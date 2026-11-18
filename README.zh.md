@@ -121,7 +121,7 @@ Streamable HTTP 且走 OAuth 的服务器（Linear、Notion、Sentry 以及很�
 - **token 不回传浏览器**：界面只看得到「已授权 / 已过期」、到期时间、以及有没有 refresh token。`refresh_token` 存在 `<dshHome>/skill-mcp-tool/oauth.json`（权限 600）；写进 `cordis.patch.yml` 的只有 access token。
 - **刷新是显式的**：点「刷新 token」换新 access token 并重写该行，DSH 随之重挂载。没有 refresh token 的服务器会提前说明 —— 过期后需要重新授权。
 - **断开授权会清理干净**：删掉本地记录，**并且**移除它写进该行的 `Authorization` 头，不会留下一个失效的 token。
-- 手写的静态 `Authorization` 头会被识别并如实标注 —— 那种行不需要走 OAuth 流程。`!!js` 表达式写法同样算数：`Bearer ${GITHUB_TOKEN}` 会显示为「已配置静态 Authorization 头」，而不是「未授权」。
+- 手写的静态 `Authorization` 头会被识别并如实标注 —— 那种行不需要走 OAuth 流程。`!!js` 表达式写法同样算数：`Bearer ${GITHUB_TOKEN}` 会显示为「已配置静态 Authorization 头」，而不是「未授权」。头名按 HTTP 规范不区分大小写，写成 `authorization` 也认；授权/刷新/断开三条写回路径会先把所有大小写变体清掉再写规范名，不会在同一行留下两条 `Authorization` 头。
 
 **备份：导出 / 导入配置（换电脑用）**
 
