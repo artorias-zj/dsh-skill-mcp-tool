@@ -42,9 +42,6 @@
     "self-update",
     "proxy"
   ],
-  "scripts": {
-    "test": "node --test tests/"
-  },
   "engines": {
     "node": "^22.15.0 || >=24.0.0"
   },
