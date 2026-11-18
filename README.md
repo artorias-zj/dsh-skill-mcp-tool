@@ -111,7 +111,7 @@ Streamable-HTTP servers behind OAuth (Linear, Notion, Sentry and many hosted MCP
 - **Tokens never reach the browser.** The UI sees only "authorized / expired", the expiry time, and whether a refresh token exists. `refresh_token` lives in `<dshHome>/skill-mcp-tool/oauth.json` (mode 600); only the access token is written into `cordis.patch.yml`.
 - **Refresh is explicit.** A *Refresh token* button rotates the access token and rewrites the row, which makes DSH remount it. Servers without a refresh token say so up front — they need re-authorization when they expire.
 - **Disconnect cleans up.** It deletes the stored record *and* removes the `Authorization` header it wrote, so the row does not keep a dead token.
-- A hand-written static `Authorization` header is recognised and reported as such — that row needs no OAuth flow.
+- A hand-written static `Authorization` header is recognised and reported as such — that row needs no OAuth flow. This includes values written as a `!!js` expression, so `Bearer ${GITHUB_TOKEN}` counts as configured rather than showing "not authorized". Header names are case-insensitive per HTTP, so `authorization` works too, and the authorize / refresh / forget write paths clear every casing variant before writing the canonical name — a row never ends up with two `Authorization` headers.
 
 **Backup: export / import your setup (for moving machines)**
 
