@@ -87,6 +87,20 @@ On many networks a direct `git clone` of a repository times out, which makes ins
 - Secret handling: API tokens and headers are **never read back to the browser** — only key names. Editing preserves keys you didn't retype, and lets you delete individual keys explicitly.
 - Type `${MY_TOKEN}` in any env or header value and it is written as a real `!!js` expression (`\`Bearer ${process.env.MY_TOKEN}\``) — DSH has no `${VAR}` interpolation, so this is the only mechanism that actually reads the environment. The `!!js` tag round-trips byte-exactly through every edit.
 
+**Add MCP servers by pasting JSON**
+
+The MCP tab's “Add from JSON” takes a configuration straight from a doc so you don't have to copy it field by field.
+
+- **Structure, not origin:** Claude Desktop / Cursor `mcpServers`, VS Code `servers`, a bare array, a single server object, and even a bare `name → config` map all parse.
+- **Where the name comes from:** the object key first, then `serverName` / `name` / `id`. The transport may be declared with `type` / `transport`; a lone `url` implies `streamable-http`, everything else is `stdio`.
+- **Preview before writing:** the parse result lists each server's action (create / overwrite / skip) plus warnings and errors. Nothing touches `cordis.patch.yml` until you confirm, and a batch triggers one remount instead of one per server.
+- **Same-name servers are skipped by default**; tick “overwrite” to replace them — and the **existing enabled state is preserved**, so a server you deliberately disabled is not silently switched on by an import.
+- **External rows are never taken over:** if another plugin or a hand-written row owns that name, the entry is marked unimportable rather than rewriting someone else's config.
+- **One bad entry does not sink the batch:** an invalid name or a missing `command` fails only that entry; the rest import normally and every error is listed.
+- **Plaintext secrets are flagged:** a token written literally (rather than as a `${VAR}` reference) produces a warning, because it will land in `cordis.patch.yml` in plain text.
+- Other transports such as SSE are accepted as `streamable-http` with a warning rather than pretending they work — DSH's MCP client only supports `stdio` and `streamable-http`.
+
+
 **MCP servers that require OAuth**
 
 Streamable-HTTP servers behind OAuth (Linear, Notion, Sentry and many hosted MCP endpoints) work too, even though DSH itself does not support it:
