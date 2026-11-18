@@ -99,6 +99,27 @@ window.__ModuleLoader__.load({
 			managedServers: "本插件管理的服务器",
 			addServer: "添加服务器",
 			addServerTitle: "新增 MCP 服务器",
+			addServerJson: "从 JSON 添加",
+			addServerJsonTitle: "从 JSON 添加 MCP 服务器",
+			jsonHint: "粘贴一段 MCP 配置即可批量导入：支持 Claude Desktop / Cursor 的 mcpServers、VS Code 的 servers 写法，也支持数组或单个服务器对象。",
+			jsonPlaceholder:
+				'{\n  "mcpServers": {\n    "deepwiki": {\n      "type": "streamable-http",\n      "url": "https://mcp.deepwiki.com/mcp"\n    },\n    "filesystem": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\\\tmp"]\n    }\n  }\n}',
+			jsonParse: "解析",
+			jsonParsing: "正在解析…",
+			jsonParsed: "解析结果",
+			jsonNothing: "没有可导入的服务器",
+			jsonOverwrite: "同名服务器已存在时覆盖（默认跳过）",
+			jsonWillCreate: "新建",
+			jsonWillOverwrite: "覆盖",
+			jsonWillSkip: "跳过",
+			jsonImport: "导入选中",
+			jsonImported: "已导入 {created} 个，覆盖 {overwritten} 个",
+			jsonReconciledPending: "已写入，但宿主尚未完成重挂载",
+			jsonSkippedTitle: "跳过的条目",
+			jsonSelectAll: "全选",
+			jsonSelectNone: "全不选",
+			jsonNeedParse: "先粘贴内容并点「解析」",
+			jsonWarningsTitle: "提示",
 			editServerTitle: "编辑 MCP 服务器",
 			serverName: "服务器名（工具前缀）",
 			serverNameHint: "1-32 位字母、数字、下划线或连字符；工具将显示为 mcp__名字__工具",
@@ -281,6 +302,27 @@ window.__ModuleLoader__.load({
 			managedServers: "Servers managed by this plugin",
 			addServer: "Add server",
 			addServerTitle: "New MCP server",
+			addServerJson: "Add from JSON",
+			addServerJsonTitle: "Add MCP servers from JSON",
+			jsonHint: "Paste an MCP configuration to import servers in bulk: Claude Desktop / Cursor `mcpServers`, VS Code `servers`, a bare array, or a single server object all work.",
+			jsonPlaceholder:
+				'{\n  "mcpServers": {\n    "deepwiki": {\n      "type": "streamable-http",\n      "url": "https://mcp.deepwiki.com/mcp"\n    },\n    "filesystem": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\\\tmp"]\n    }\n  }\n}',
+			jsonParse: "Parse",
+			jsonParsing: "Parsing…",
+			jsonParsed: "Parsed servers",
+			jsonNothing: "Nothing to import",
+			jsonOverwrite: "Overwrite servers with the same name (skipped by default)",
+			jsonWillCreate: "create",
+			jsonWillOverwrite: "overwrite",
+			jsonWillSkip: "skip",
+			jsonImport: "Import selected",
+			jsonImported: "Imported {created}, overwritten {overwritten}",
+			jsonReconciledPending: "Written, but the host has not finished remounting yet",
+			jsonSkippedTitle: "Skipped entries",
+			jsonSelectAll: "Select all",
+			jsonSelectNone: "Select none",
+			jsonNeedParse: "Paste something and press Parse first",
+			jsonWarningsTitle: "Notes",
 			editServerTitle: "Edit MCP server",
 			serverName: "Server name (tool prefix)",
 			serverNameHint: "1-32 chars: letters, digits, underscore, hyphen. Tools appear as mcp__name__tool",
@@ -1420,6 +1462,7 @@ window.__ModuleLoader__.load({
 			const [busy, setBusy] = React.useState(null);
 			const [editor, setEditor] = React.useState(null);
 			const [oauthTarget, setOauthTarget] = React.useState(null);
+			const [jsonOpen, setJsonOpen] = React.useState(false);
 			const patch = state?.mcp?.patch ?? {};
 			// 首字母排序；宿主已排过，这里再排一次以防旧版宿主。
 			const servers = React.useMemo(
@@ -1573,7 +1616,8 @@ window.__ModuleLoader__.load({
 				h(
 					"div",
 					{ className: "smt-actions" },
-					h("button", { type: "button", className: "smt-btn", "data-variant": "primary", onClick: () => setEditor({ initial: null }) }, t("addServer"))
+					h("button", { type: "button", className: "smt-btn", "data-variant": "primary", onClick: () => setEditor({ initial: null }) }, t("addServer")),
+					h("button", { type: "button", className: "smt-btn", onClick: () => setJsonOpen(true) }, t("addServerJson"))
 				),
 				patch.ok === false ? h(Notice, { kind: "error" }, `${t("loadFailed")}: ${patch.error} (${patch.path})`) : null,
 				state?.mcp?.duplicates?.length
@@ -1620,6 +1664,19 @@ window.__ModuleLoader__.load({
 					: null,
 				oauthTarget !== null
 					? h(OAuthDialog, { t, server: oauthTarget, onClose: () => setOauthTarget(null), reload, notify })
+					: null,
+				jsonOpen
+					? h(JsonImportDialog, {
+							t,
+							onClose: () => setJsonOpen(false),
+							onImported: async (result) => {
+								await reload();
+								const message = fill(t("jsonImported"), { created: result.created, overwritten: result.overwritten });
+								const skipped = result.skipped?.length ?? 0;
+								const suffix = skipped > 0 ? ` · ${t("jsonWillSkip")} ${skipped}` : "";
+								notify(result.reconciled ? "success" : "info", `${message}${suffix}${result.reconciled ? "" : ` · ${t("jsonReconciledPending")}`}`);
+							}
+						})
 					: null
 			);
 		}
@@ -1746,6 +1803,209 @@ window.__ModuleLoader__.load({
 							h(Field, { label: t("maxAttempts") }, h("input", { className: "smt-input", type: "number", min: 1, value: form.maxAttempts, onChange: (event) => set({ maxAttempts: event.target.value }) }))
 						)
 					: null
+			);
+		}
+
+		// ── 从 JSON 添加 MCP 服务器 ─────────────────────────────────────────
+		/**
+		 * 粘贴一段 JSON 批量添加服务器。
+		 *
+		 * 为什么是「解析 → 勾选 → 导入」三步，而不是「粘贴 → 直接导入」：
+		 * 从文档里抄来的配置往往一半已存在、一半是新的，偶尔还带着明文令牌。
+		 * 先摊开每条的动作（新建 / 覆盖 / 跳过）和提示，用户才有机会在真正
+		 * 写盘前发现「哦这条会覆盖我调好的那个」。这与备份页的预检是同一套哲学。
+		 *
+		 * 解析与写盘都在宿主侧完成：浏览器不该重复实现一遍名字规则，
+		 * 否则两边的校验迟早不一致。
+		 */
+		function JsonImportDialog({ t, onClose, onImported }) {
+			const [text, setText] = React.useState("");
+			const [preview, setPreview] = React.useState(null);
+			const [selected, setSelected] = React.useState(() => new Set());
+			const [overwrite, setOverwrite] = React.useState(false);
+			const [busy, setBusy] = React.useState(false);
+			const [error, setError] = React.useState(null);
+
+			const candidates = preview?.servers ?? [];
+			const selectable = candidates.filter((server) => server.blocked === undefined);
+
+			const parse = () =>
+				runForm(
+					setBusy,
+					setError,
+					() => apiPost("mcp/parse-json", { text }),
+					(result) => {
+						setPreview(result);
+						// 默认全选「能导入的」：用户贴进来就是为了导入，不该再勾一遍。
+						setSelected(new Set((result.servers ?? []).filter((server) => server.blocked === undefined).map((server) => server.serverName)));
+					}
+				);
+
+			const toggle = (name) =>
+				setSelected((prev) => {
+					const next = new Set(prev);
+					if (next.has(name)) next.delete(name);
+					else next.add(name);
+					return next;
+				});
+
+			const submit = () =>
+				runForm(
+					setBusy,
+					setError,
+					() =>
+						apiPost("mcp/import-json", {
+							text,
+							overwrite,
+							names: [...selected]
+						}),
+					async (result) => {
+						onClose();
+						await onImported(result);
+					}
+				);
+
+			const actionLabel = (server) => {
+				if (server.blocked !== undefined) return t("jsonWillSkip");
+				if (server.action === "overwrite") return t("jsonWillOverwrite");
+				return t("jsonWillCreate");
+			};
+
+			return h(
+				Modal,
+				{
+					title: t("addServerJsonTitle"),
+					onClose,
+					footer: [
+						h("button", { key: "c", type: "button", className: "smt-btn", onClick: onClose }, t("cancel")),
+						h(
+							"button",
+							{ key: "p", type: "button", className: "smt-btn", disabled: busy || text.trim() === "", onClick: parse },
+							busy ? h("span", { className: "smt-spin" }) : t("jsonParse")
+						),
+						h(
+							"button",
+							{
+								key: "i",
+								type: "button",
+								className: "smt-btn",
+								"data-variant": "primary",
+								disabled: busy || preview === null || selectable.length === 0 || selected.size === 0,
+								onClick: submit
+							},
+							t("jsonImport")
+						)
+					]
+				},
+				error ? h(Notice, { kind: "error" }, error) : null,
+				h(
+					"div",
+					{ className: "smt-field" },
+					h("span", { className: "smt-hint" }, t("jsonHint")),
+					h("textarea", {
+						className: "smt-textarea",
+						style: { minHeight: 160, fontFamily: "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace", fontSize: 12 },
+						value: text,
+						placeholder: t("jsonPlaceholder"),
+						onChange: (event) => {
+							setText(event.target.value);
+							// 改了内容，上一份预检就作废了 —— 留着会让用户以为改后的文本已被检查过。
+							setPreview(null);
+							setSelected(new Set());
+						},
+						spellCheck: false
+					})
+				),
+				preview === null
+					? null
+					: h(
+							"div",
+							{ className: "smt-root" },
+							preview.errors?.length
+								? h(
+										"div",
+										{ className: "smt-notice", "data-kind": "error" },
+										h("span", { className: "smt-noticeText" }, preview.errors.join("；"))
+									)
+								: null,
+							preview.warnings?.length
+								? h(
+										"div",
+										{ className: "smt-notice", "data-kind": "info" },
+										h("span", { className: "smt-noticeText" }, `${t("jsonWarningsTitle")}：${preview.warnings.join("；")}`)
+									)
+								: null,
+							candidates.length === 0
+								? h("div", { className: "smt-empty" }, t("jsonNothing"))
+								: h(
+										"div",
+										{ className: "smt-root" },
+										h(
+											"div",
+											{ className: "smt-actions" },
+											h("span", { className: "smt-groupName" }, t("jsonParsed")),
+											h(
+												"button",
+												{
+													type: "button",
+													className: "smt-btn",
+													"data-size": "sm",
+													onClick: () => setSelected(new Set(selectable.map((server) => server.serverName)))
+												},
+												t("jsonSelectAll")
+											),
+											h("button", { type: "button", className: "smt-btn", "data-size": "sm", onClick: () => setSelected(new Set()) }, t("jsonSelectNone"))
+										),
+										h(
+											"div",
+											{ className: "smt-list" },
+											candidates.map((server) =>
+												h(
+													"div",
+													{ key: server.serverName, className: "smt-card", "data-disabled": server.blocked !== undefined },
+													h(
+														"div",
+														{ className: "smt-cardMain" },
+														h(
+															"div",
+															{ className: "smt-name" },
+															server.serverName,
+															h(
+																"span",
+																{
+																	className: "smt-badge",
+																	"data-tone": server.blocked !== undefined ? "error" : server.action === "overwrite" ? "warn" : "on"
+																},
+																actionLabel(server)
+															),
+															h("span", { className: "smt-badge" }, server.transport),
+															server.enabled ? null : h("span", { className: "smt-badge" }, t("disabled"))
+														),
+														h("div", { className: "smt-meta" }, server.summary),
+														server.blocked ? h("div", { className: "smt-meta" }, server.blocked) : null
+													),
+													h(
+														"div",
+														{ className: "smt-cardActions" },
+														server.blocked !== undefined
+															? h("span", { className: "smt-badge", "data-tone": "off" }, t("readOnly"))
+															: h(Switch, {
+																	checked: selected.has(server.serverName),
+																	onChange: () => toggle(server.serverName),
+																	label: server.serverName
+																})
+													)
+												)
+											)
+										),
+										h(
+											"label",
+											{ className: "smt-inline" },
+											h(Switch, { checked: overwrite, onChange: (next) => setOverwrite(next), label: t("jsonOverwrite") }),
+											h("span", { className: "smt-fieldLabel" }, t("jsonOverwrite"))
+										)
+									)
+						)
 			);
 		}
 
